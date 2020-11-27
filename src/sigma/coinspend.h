@@ -32,8 +32,6 @@ public:
 
     const Scalar& getCoinSerialNumber();
 
-    const SigmaPlusProof<Scalar, GroupElement>& getProof();
-
     CoinDenomination getDenomination() const;
 
     int64_t getIntDenomination() const;
@@ -52,11 +50,7 @@ public:
 
     bool HasValidSerial() const;
 
-    bool Verify(
-            const std::vector<sigma::PublicCoin>& anonymity_set,
-            const SpendMetaData &m,
-            bool fPadding,
-            bool fSkipVerification = false) const;
+    bool Verify(const std::vector<sigma::PublicCoin>& anonymity_set, const SpendMetaData &m, bool fPadding) const;
 
     ADD_SERIALIZE_METHODS;
     template <typename Stream, typename Operation>

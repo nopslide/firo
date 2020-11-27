@@ -10,8 +10,8 @@
 
 /**
  * CHDMint object
- *
- * struct that is safe to store essential mint data, without holding any information that allows for actual spending
+ * 
+ * struct that is safe to store essential mint data, without holding any information that allows for actual spending 
  * (ie. serial, randomness, private key)
  *
  * @return CHDMint object
@@ -26,15 +26,22 @@ private:
     uint256 txid;
     int nHeight;
     int nId;
-    int64_t amount;
+    int64_t denom;
     bool isUsed;
 
 public:
     CHDMint();
     CHDMint(const int32_t& nCount, const CKeyID& seedId, const uint256& hashSerial, const GroupElement& pubCoinValue);
 
-    int64_t GetAmount() const {
-        return amount;
+    boost::optional<sigma::CoinDenomination> GetDenomination() const {
+        sigma::CoinDenomination value;
+        if(denom==0)
+            return boost::none;
+        IntegerToDenomination(denom, value);
+        return value;
+    }
+    int64_t GetDenominationValue() const {
+        return denom;
     }
     int32_t GetCount() const { return nCount; }
     int GetHeight() const { return nHeight; }
@@ -45,7 +52,12 @@ public:
     uint256 GetPubCoinHash() const { return primitives::GetPubCoinValueHash(pubCoinValue); }
     uint256 GetTxHash() const { return txid; }
     bool IsUsed() const { return isUsed; }
-    void SetAmount(const int64_t& amount) { this->amount = amount; }
+    void SetDenomination(const sigma::CoinDenomination value) {
+        int64_t denom;
+        DenominationToInteger(value, denom);
+        this->denom = denom;
+    };
+    void SetDenominationValue(const int64_t& denom) { this->denom = denom; }
     void SetHeight(const int& nHeight) { this->nHeight = nHeight; }
     void SetId(const int& nId) { this->nId = nId; }
     void SetNull();
@@ -66,7 +78,7 @@ public:
         READWRITE(txid);
         READWRITE(nHeight);
         READWRITE(nId);
-        READWRITE(amount);
+        READWRITE(denom);
         READWRITE(isUsed);
     };
 };

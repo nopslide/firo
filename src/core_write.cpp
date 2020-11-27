@@ -111,8 +111,7 @@ std::string ScriptToAsmStr(const CScript& script, const bool fAttemptSighashDeco
             str += GetOpName(opcode);
         }
 
-        if (opcode == opcodetype::OP_SIGMASPEND || opcode == opcodetype::OP_SIGMAMINT ||
-            opcode == opcodetype::OP_LELANTUSMINT || opcode == opcodetype::OP_LELANTUSJOINSPLIT) {
+        if (opcode == opcodetype::OP_SIGMASPEND || opcode == opcodetype::OP_SIGMAMINT) {
             str += " ";
             str += HexStr(vch);
             break;

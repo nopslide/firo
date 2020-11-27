@@ -10,7 +10,6 @@
 
 #include <stddef.h>
 
-
 namespace secp_primitives {
 
 class GroupElement final {
@@ -47,19 +46,15 @@ public:
 
   void square();
 
+  bool operator==(const GroupElement&other) const;
+
+  bool operator!=(const GroupElement&other) const;
 
   bool isMember() const;
 
   bool isInfinity() const;
 
-
-  bool operator==(const GroupElement&other) const;
-
-  bool operator!=(const GroupElement&other) const;
-
   GroupElement& generate(unsigned char* seed);
-
-  void normalSha256(unsigned char* result) const;
 
   void sha256(unsigned char* result) const;
 

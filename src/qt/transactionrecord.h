@@ -80,7 +80,7 @@ public:
         SendToSelf,
         SpendToAddress,
         SpendToSelf,
-        Anonymize,
+        Mint,
     };
 
     /** Number of confirmation recommended for accepting a transaction */

@@ -576,7 +576,6 @@ void handleSingleAddress(const UniValue& uniAddress, std::vector<std::pair<uint1
     } else if(zerocoin::utils::isZerocoin(addr)) {
         addresses.push_back(std::make_pair(uint160(), AddressType::zerocoinMint));
         addresses.push_back(std::make_pair(uint160(), AddressType::zerocoinSpend));
-
     } else if(zerocoin::utils::isSigmaMint(addr)) {
         addresses.push_back(std::make_pair(uint160(), AddressType::sigmaMint));
     } else if(zerocoin::utils::isSigmaSpend(addr)) {
@@ -584,18 +583,6 @@ void handleSingleAddress(const UniValue& uniAddress, std::vector<std::pair<uint1
     } else if(zerocoin::utils::isSigma(addr)) {
         addresses.push_back(std::make_pair(uint160(), AddressType::sigmaMint));
         addresses.push_back(std::make_pair(uint160(), AddressType::sigmaSpend));
-
-    } else if(zerocoin::utils::isLelantusMint(addr)) {
-        addresses.push_back(std::make_pair(uint160(), AddressType::lelantusMint));
-    } else if(zerocoin::utils::isLelantusJMint(addr)) {
-        addresses.push_back(std::make_pair(uint160(), AddressType::lelantusJMint));
-    } else if(zerocoin::utils::isLelantusJSplit(addr)) {
-        addresses.push_back(std::make_pair(uint160(), AddressType::lelantusJSplit));
-    } else if(zerocoin::utils::isLelantus(addr)) {
-        addresses.push_back(std::make_pair(uint160(), AddressType::lelantusMint));
-        addresses.push_back(std::make_pair(uint160(), AddressType::lelantusJMint));
-        addresses.push_back(std::make_pair(uint160(), AddressType::lelantusJSplit));
-
     } else if(zerocoin::utils::isZerocoinRemint(addr)) {
         addresses.push_back(std::make_pair(uint160(), AddressType::zerocoinRemint));
     } else {
@@ -938,7 +925,7 @@ UniValue getanonymityset(const JSONRPCRequest& request)
                         "\nResult:\n"
                         "{\n"
                         "  \"blockHash\"   (string) Latest block hash for anonymity set\n"
-                        "  \"anonymityset\"(std::string[]) array of Serialized GroupElements\n"
+                        "  \"anonimityset\"(std::string[]) array of Serialized GroupElements\n"
                         "}\n"
                 + HelpExampleCli("getanonymityset", "100000000 1")
                 + HelpExampleRpc("getanonymityset", "\"100000000\", \"1\"")

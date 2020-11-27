@@ -384,8 +384,8 @@ QString TransactionTableModel::formatTxType(const TransactionRecord *wtx) const
             return tr("Spend to");
     case TransactionRecord::SpendToSelf:
            return tr("Spend to yourself");
-    case TransactionRecord::Anonymize:
-           return tr("Anonymize");
+    case TransactionRecord::Mint:
+           return tr("Mint");
     default:
         return QString();
     }
@@ -399,11 +399,12 @@ QVariant TransactionTableModel::txAddressDecoration(const TransactionRecord *wtx
         return QIcon(":/icons/tx_mined");
     case TransactionRecord::RecvWithAddress:
     case TransactionRecord::RecvFromOther:
+    case TransactionRecord::SpendToSelf:
         return QIcon(":/icons/tx_input");
     case TransactionRecord::SendToAddress:
     case TransactionRecord::SendToOther:
     case TransactionRecord::SpendToAddress:
-    case TransactionRecord::Anonymize:
+    case TransactionRecord::Mint:
         return QIcon(":/icons/tx_output");
     default:
         return QIcon(":/icons/tx_inout");
@@ -425,14 +426,14 @@ QString TransactionTableModel::formatTxToAddress(const TransactionRecord *wtx, b
     case TransactionRecord::RecvWithAddress:
     case TransactionRecord::SendToAddress:
     case TransactionRecord::SpendToAddress:
+    case TransactionRecord::SpendToSelf:
     case TransactionRecord::Generated:
         return lookupAddress(wtx->address, tooltip) + watchAddress;
     case TransactionRecord::SendToOther:
         return QString::fromStdString(wtx->address) + watchAddress;
-    case TransactionRecord::Anonymize:
+    case TransactionRecord::Mint:
         return tr("Anonymized");
     case TransactionRecord::SendToSelf:
-    case TransactionRecord::SpendToSelf:
     default:
         return tr("(n/a)") + watchAddress;
     }
@@ -454,7 +455,7 @@ QVariant TransactionTableModel::addressColor(const TransactionRecord *wtx) const
         } break;
     case TransactionRecord::SendToSelf:
     case TransactionRecord::SpendToSelf:
-    case TransactionRecord::Anonymize:
+    case TransactionRecord::Mint:
         return COLOR_BAREADDRESS;
     default:
         break;

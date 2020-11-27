@@ -170,10 +170,6 @@ private:
     CAmount nSigmaSpendAmount;
     size_t nSigmaSpendInputs;
 
-    // lelantus spend limits
-    CAmount nLelantusSpendAmount;
-    size_t nLelantusSpendInputs;
-
     // transactions we cannot include in this block
     CTxMemPool::setEntries txBlackList;
 

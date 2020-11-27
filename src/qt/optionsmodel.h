@@ -48,8 +48,6 @@ public:
         ReindexSigma,           // bool
         Listen,                 // bool
         TorSetup,               // bool
-        AutoAnonymize,          // bool
-        LelantusPage,           // bool
         OptionIDRowCount,
     };
 
@@ -71,8 +69,6 @@ public:
     bool getProxySettings(QNetworkProxy& proxy) const;
     bool getCoinControlFeatures() { return fCoinControlFeatures; }
     const QString& getOverriddenByCommandLine() { return strOverriddenByCommandLine; }
-    bool getAutoAnonymize() { return fAutoAnonymize; }
-    bool getLelantusPage() {return fLelantusPage; }
 
     /* Restart flag helper */
     void setRestartRequired(bool fRequired);
@@ -87,9 +83,6 @@ private:
     int nDisplayUnit;
     QString strThirdPartyTxUrls;
     bool fCoinControlFeatures;
-    bool fAutoAnonymize;
-    bool fLelantusPage;
-
     /* settings that were overridden by command-line */
     QString strOverriddenByCommandLine;
 
@@ -101,8 +94,6 @@ private:
 Q_SIGNALS:
     void displayUnitChanged(int unit);
     void coinControlFeaturesChanged(bool);
-    void autoAnonymizeChanged(bool);
-    void lelantusPageChanged(bool);
     void hideTrayIconChanged(bool);
 };
 

@@ -27,10 +27,6 @@ public:
         };
     }
 
-    ~OpenSSLContext(){
-        secp256k1_context_destroy(ctx);
-    }
-
 private:
     secp256k1_context* ctx;
 

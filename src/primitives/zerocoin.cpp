@@ -1,12 +1,12 @@
 #include "zerocoin.h"
-#include "../liblelantus/coin.h"
 
-GroupElement const & MintMeta::GetPubCoinValue() const {
+
+GroupElement const & CMintMeta::GetPubCoinValue() const {
     return pubCoinValue;
 }
 
 
-void MintMeta::SetPubCoinValue(GroupElement const & other) {
+void CMintMeta::SetPubCoinValue(GroupElement const & other) {
     if (other == pubCoinValue)
         return;
     pubCoinValueHash.reset();
@@ -14,11 +14,12 @@ void MintMeta::SetPubCoinValue(GroupElement const & other) {
 }
 
 
-uint256 MintMeta::GetPubCoinValueHash() const {
+uint256 CMintMeta::GetPubCoinValueHash() const {
     if(!pubCoinValueHash)
         pubCoinValueHash.reset(primitives::GetPubCoinValueHash(pubCoinValue));
     return *pubCoinValueHash;
 }
+
 
 namespace primitives {
 

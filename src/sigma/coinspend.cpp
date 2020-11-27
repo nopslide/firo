@@ -53,6 +53,10 @@ void CoinSpend::updateMetaData(const PrivateCoin& coin, const SpendMetaData& m){
     // (This proof is bound to the coin 'metadata', i.e., transaction hash)
     uint256 metahash = signatureHash(m);
 
+    // TODO(martun): check why this was necessary.
+    //this->serialNumberSoK = SerialNumberSignatureOfKnowledge(
+    //    p, coin, fullCommitmentToCoinUnderSerialParams, metahash);
+
     // 5. Sign the transaction under the public key associate with the serial number.
     secp256k1_pubkey pubkey;
     size_t len = 33;
@@ -93,8 +97,7 @@ uint256 CoinSpend::signatureHash(const SpendMetaData& m) const {
 bool CoinSpend::Verify(
         const std::vector<sigma::PublicCoin>& anonymity_set,
         const SpendMetaData& m,
-        bool fPadding,
-        bool fSkipVerification) const {
+        bool fPadding) const {
     SigmaPlusVerifier<Scalar, GroupElement> sigmaVerifier(params->get_g(), params->get_h(), params->get_n(), params->get_m());
     //compute inverse of g^s
     GroupElement gs = (params->get_g() * coinSerialNumber).inverse();
@@ -138,10 +141,6 @@ bool CoinSpend::Verify(
         return false;
     }
 
-    //skip verification if we are collecting proofs for later batch verification
-    if(fSkipVerification)
-        return true;
-
     // Now verify the sigma proof itself.
     return sigmaVerifier.verify(C_, sigmaProof, fPadding);
 }
@@ -149,11 +148,6 @@ bool CoinSpend::Verify(
 const Scalar& CoinSpend::getCoinSerialNumber() {
     return this->coinSerialNumber;
 }
-
-const SigmaPlusProof<Scalar, GroupElement>& CoinSpend::getProof() {
-    return this->sigmaProof;
-}
-
 
 CoinDenomination CoinSpend::getDenomination() const {
     return denomination;
