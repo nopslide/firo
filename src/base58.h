@@ -120,6 +120,7 @@ public:
     bool GetIndexKey(uint160& hashBytes, AddressType & type) const;
     bool GetKeyID(CKeyID &keyID) const;
     bool IsScript() const;
+    bool IsPubKeyHash() const;
 };
 
 /**

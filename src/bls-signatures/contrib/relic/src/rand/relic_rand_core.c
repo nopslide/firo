@@ -163,7 +163,7 @@ void rand_init(void) {
 
 #endif /* RAND == UDEV */
 
-#if RAND != CALL
+#if RAND != CALLBLS
 	core_get()->seeded = 0;
 	rand_seed(buf, SEED_SIZE);
 #else
@@ -178,7 +178,7 @@ void rand_clean(void) {
 	close(*fd);
 #endif
 
-#if RAND != CALL
+#if RAND != CALLBLS
 	memset(core_get()->rand, 0, sizeof(core_get()->rand));
 #else
 	core_get()->rand_call = NULL;

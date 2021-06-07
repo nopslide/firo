@@ -11,6 +11,10 @@
 #include "utilstrencodings.h"
 
 #include <boost/foreach.hpp>
+#include <fvm/fvmstate.h>
+#include <fvm/fvmtransaction.h>
+#include <validation.h>
+
 
 using namespace std;
 
@@ -37,6 +41,8 @@ const char* GetTxnOutputType(txnouttype t)
     case TX_ZEROCOINMINTV3: return "zerocoinmintv3";
     case TX_LELANTUSMINT: return "lelantusmint";
     case TX_LELANTUSJMINT: return "lelantusmint";
+    case TX_FVMCREATE: return "fvmcreate";
+    case TX_FVMCALL: return "fvmcall";
 
     }
     return NULL;
@@ -45,7 +51,7 @@ const char* GetTxnOutputType(txnouttype t)
 /**
  * Return public keys or hashes from scriptPubKey, for 'standard' transaction types.
  */
-bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet)
+bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsigned char> >& vSolutionsRet, bool contractConsensus)
 {
     // Templates
     static multimap<txnouttype, CScript> mTemplates;
@@ -59,6 +65,13 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
 
         // Sender provides N pubkeys, receivers provides M signatures
         mTemplates.insert(make_pair(TX_MULTISIG, CScript() << OP_SMALLINTEGER << OP_PUBKEYS << OP_SMALLINTEGER << OP_CHECKMULTISIG));
+
+        // Contract creation tx
+        mTemplates.insert(make_pair(TX_FVMCREATE, CScript() << OP_FVMVERSION << OP_FVMGASLIMIT << OP_FVMGASPRICE << OP_FVMDATA << OP_FVMCREATE));
+
+        // Call contract tx
+        mTemplates.insert(make_pair(TX_FVMCALL, CScript() << OP_FVMVERSION << OP_FVMGASLIMIT << OP_FVMGASPRICE << OP_FVMDATA << OP_PUBKEYHASH << OP_FVMCALL));
+
     }
 
     vSolutionsRet.clear();
@@ -154,6 +167,9 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
         opcodetype opcode1, opcode2;
         vector<unsigned char> vch1, vch2;
 
+        VersionVM version;
+        version.rootVM=20; //set to some invalid value
+
         // Compare
         CScript::const_iterator pc1 = script1.begin();
         CScript::const_iterator pc2 = script2.begin();
@@ -216,6 +232,76 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
                 else
                     break;
             }
+            else if (opcode2 == OP_FVMVERSION)
+            {
+                if(0 <= opcode1 && opcode1 <= OP_PUSHDATA4)
+                {
+                    if(vch1.empty() || vch1.size() > 4 || (vch1.back() & 0x80))
+                        return false;
+
+                    version = VersionVM::fromRaw(CScriptNum::vch_to_uint64(vch1));
+                    if(!(version.toRaw() == VersionVM::GetEVMDefault().toRaw() || version.toRaw() == VersionVM::GetNoExec().toRaw())){
+                        // only allow standard EVM and no-exec transactions to live in mempool
+                        return false;
+                    }
+                }
+            }
+            else if(opcode2 == OP_FVMGASLIMIT) {
+                try {
+                    uint64_t val = CScriptNum::vch_to_uint64(vch1);
+                    if(contractConsensus) {
+                        //consensus rules (this is checked more in depth later using DGP)
+                        if (version.rootVM != 0 && val < 1) {
+                            return false;
+                        }
+                        if (val > MAX_BLOCK_GAS_LIMIT_DGP) {
+                            //do not allow transactions that could use more gas than is in a block
+                            return false;
+                        }
+                    }else{
+                        //standard mempool rules for contracts
+                        //consensus rules for contracts
+                        if (version.rootVM != 0 && val < STANDARD_MINIMUM_GAS_LIMIT) {
+                            return false;
+                        }
+                        if (val > DEFAULT_BLOCK_GAS_LIMIT_DGP / 2) {
+                            //don't allow transactions that use more than 1/2 block of gas to be broadcast on the mempool
+                            return false;
+                        }
+
+                    }
+                }
+                catch (const scriptnum_error &err) {
+                    return false;
+                }
+            }
+            else if(opcode2 == OP_FVMGASPRICE) {
+                try {
+                    uint64_t val = CScriptNum::vch_to_uint64(vch1);
+                    if(contractConsensus) {
+                        //consensus rules (this is checked more in depth later using DGP)
+                        if (version.rootVM != 0 && val < 1) {
+                            return false;
+                        }
+                    }else{
+                        //standard mempool rules
+                        if (version.rootVM != 0 && val < STANDARD_MINIMUM_GAS_PRICE) {
+                            return false;
+                        }
+                    }
+                }
+                catch (const scriptnum_error &err) {
+                    return false;
+                }
+            }
+            else if(opcode2 == OP_FVMDATA)
+            {
+                if(0 <= opcode1 && opcode1 <= OP_PUSHDATA4)
+                {
+                    if(vch1.empty())
+                        break;
+                }
+            }
             else if (opcode1 != opcode2 || vch1 != vch2)
             {
                 // Others must match exactly
@@ -229,12 +315,16 @@ bool Solver(const CScript& scriptPubKey, txnouttype& typeRet, vector<vector<unsi
     return false;
 }
 
-bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet)
+bool ExtractDestination(const CScript& scriptPubKey, CTxDestination& addressRet, txnouttype *typeRet)
 {
     vector<valtype> vSolutions;
     txnouttype whichType;
     if (!Solver(scriptPubKey, whichType, vSolutions))
         return false;
+
+    if(typeRet){
+        *typeRet = whichType;
+    }
 
     if (whichType == TX_PUBKEY)
     {

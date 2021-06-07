@@ -33,7 +33,7 @@
 #include "relic.h"
 #include "relic_bench.h"
 
-#if RAND == CALL
+#if RAND == CALLBLS
 
 #include <unistd.h>
 #include <sys/stat.h>

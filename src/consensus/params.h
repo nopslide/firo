@@ -348,6 +348,8 @@ struct Params {
     bool IsMain() const { return chainType == chainMain; }
     bool IsTestnet() const { return chainType == chainTestnet; }
     bool IsRegtest() const { return chainType == chainRegtest; }
+    
+    int nFixUTXOCacheHFHeight;
 };
 } // namespace Consensus
 

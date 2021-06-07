@@ -470,7 +470,7 @@ static int test(void) {
 	return code;
 }
 
-#elif RAND == CALL
+#elif RAND == CALLBLS
 
 #include <unistd.h>
 #include <sys/stat.h>

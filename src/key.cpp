@@ -14,6 +14,11 @@
 #include <secp256k1_recovery.h>
 #include <secp256k1_ecdh.h>
 
+#include <openssl/bn.h>
+#include <openssl/ecdsa.h>
+#include <openssl/rand.h>
+#include <openssl/obj_mac.h>
+
 static secp256k1_context* secp256k1_context_sign = NULL;
 
 /** These functions are taken from the libsecp256k1 distribution and are very ugly. */
