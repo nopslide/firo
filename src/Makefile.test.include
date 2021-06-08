@@ -176,7 +176,14 @@ BITCOIN_TESTS = \
   test/evospork_tests.cpp \
   test/evo_deterministicmns_tests.cpp \
   test/evo_simplifiedmns_tests.cpp \
-  test/bls_tests.cpp
+  test/bls_tests.cpp \
+  test/fvmtests/fvmtxconverter_tests.cpp \
+  test/fvmtests/bytecodeexec_tests.cpp \
+  test/fvmtests/condensingtransaction_tests.cpp \
+  test/fvmtests/test_utils.cpp \
+  test/fvmtests/test_utils.h \
+  test/fvmtests/dgp_tests.cpp
+
 
 if ENABLE_WALLET
 BITCOIN_TESTS += \
@@ -230,11 +237,11 @@ test_test_bitcoin_LDADD = $(LIBBITCOIN_SERVER) tor/src/core/libtor-app.a \
 	tor/src/lib/libcurve25519_donna.a \
 	tor/src/ext/ed25519/donna/libed25519_donna.a \
 	tor/src/ext/ed25519/ref10/libed25519_ref10.a \
-	tor/src/ext/keccak-tiny/libkeccak-tiny.a
+	tor/src/ext/keccak-tiny/libkeccak-tiny.a $(ZLIB_LIBS) -lz
 test_test_bitcoin_SOURCES = $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
 test_test_bitcoin_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) -I$(builddir)/test/ $(TESTDEFS) $(EVENT_CFLAGS) $(LIBBLSSIG_INCLUDES)
 test_test_bitcoin_LDADD += $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CONSENSUS) $(LIBBITCOIN_CRYPTO) $(LIBFIRO_SIGMA) $(LIBLELANTUS) $(LIBUNIVALUE) $(LIBLEVELDB) $(LIBLEVELDB_SSE42) $(LIBMEMENV) \
-  $(BACKTRACE_LIB) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_PTHREADS_LIBS) $(ZMQ_LIBS) $(ZLIB_LIBS)
+  $(BACKTRACE_LIB) $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_PTHREADS_LIBS) $(ZMQ_LIBS) $(ZLIB_LIBS) $(LIBCRYPTOPP)  $(EVENT_LIBS) $(LIBETHEREUM) $(LIBETHASHSEAL) $(LIBETHASH) $(LIBETHCORE) -lboost_random
 test_test_bitcoin_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
 if ENABLE_WALLET
 test_test_bitcoin_LDADD += libbitcoin_server_a-netfulfilledman.o $(LIBBITCOIN_WALLET)

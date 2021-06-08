@@ -99,7 +99,7 @@ private:
 	mutable Mutex x_options;
 	std::unordered_map<std::string, bytes> m_options;
 
-	mutable EVMSchedule fvmSchedule; // qtum
+	mutable EVMSchedule fvmSchedule; // fvm
 
 	ChainOperationParams m_params;
 };

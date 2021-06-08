@@ -173,12 +173,12 @@ Vin* FvmState::vin(dev::Address const& _addr)
     return &it->second;
 }
 
-// void QtumState::commit(CommitBehaviour _commitBehaviour)
+// void FvmState::commit(CommitBehaviour _commitBehaviour)
 // {
 //     if (_commitBehaviour == CommitBehaviour::RemoveEmptyAccounts)
 //         removeEmptyAccounts();
 
-//     qtum::commit(cacheUTXO, stateUTXO, m_cache);
+//     fvm::commit(cacheUTXO, stateUTXO, m_cache);
 //     cacheUTXO.clear();
         
 //     m_touched += dev::eth::commit(m_cache, m_state);
