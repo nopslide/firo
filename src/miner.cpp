@@ -156,18 +156,21 @@ void BlockAssembler::resetBlock()
 }
 
 void BlockAssembler::RebuildRefundTransaction(){
-    int refundtx=0; //0 for coinbase in PoW
+    CAmount nValueTmp; //0 for coinbase in PoW
     CMutableTransaction contrTx(originalRewardTx);
-    contrTx.vout[refundtx].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
-    contrTx.vout[refundtx].nValue -= bceResult.refundSender;
-    //note, this will need changed for MPoS
-    int i=contrTx.vout.size();
-    contrTx.vout.resize(contrTx.vout.size()+bceResult.refundOutputs.size());
-    for(CTxOut& vout : bceResult.refundOutputs){
-        contrTx.vout[i]=vout;
-        i++;
-    }
-    pblock->vtx[refundtx] = MakeTransactionRef(std::move(contrTx));
+    nValueTmp = nFees + contrTx.vout[0].nValue;
+    nValueTmp -= bceResult.refundSender;
+    if(contrTx.vout[0].nValue != nValueTmp){
+        contrTx.vout[0].nValue = nValueTmp;
+        //note, this will need changed for MPoS
+        int i=contrTx.vout.size();
+        contrTx.vout.resize(contrTx.vout.size()+bceResult.refundOutputs.size());
+        for(CTxOut& vout : bceResult.refundOutputs){
+            contrTx.vout[i]=vout;
+            i++;
+        }
+        pblock->vtx[0] = MakeTransactionRef(std::move(contrTx));
+    }     
 }
 
 std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx, int64_t* pTotalFees, int32_t nTimeLimit)
@@ -300,10 +303,11 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     std::vector<CTxOut> sbPayments;
     FillBlockPayments(coinbaseTx, nHeight, nBlockSubsidy, pblocktemplate->voutMasternodePayments, sbPayments);
 
+    originalRewardTx = coinbaseTx;
+
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
     FvmDGP fvmDGP(globalState.get(), fGettingValuesDGP);
     globalSealEngine->setFvmSchedule(fvmDGP.getGasSchedule(nHeight));
-    uint32_t blockSizeDGP = fvmDGP.getBlockSize(nHeight);
     minGasPrice = fvmDGP.getMinGasPrice(nHeight);
     if(IsArgSet("-min-tx-gas-price")) {
         CAmount minGasPriceValue;
@@ -315,8 +319,6 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     softBlockGasLimit = GetArg("-soft-block-gas-limit", hardBlockGasLimit);
     softBlockGasLimit = std::min(softBlockGasLimit, hardBlockGasLimit);
     txGasLimit = GetArg("-max-tx-gas-limit", softBlockGasLimit);
-
-    nBlockMaxSize = blockSizeDGP ? blockSizeDGP : nBlockMaxSize;
     
     dev::h256 oldHashStateRoot(globalState->rootHash());
     dev::h256 oldHashUTXORoot(globalState->rootHashUTXO());
@@ -329,7 +331,9 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
 
     //this should already be populated by AddBlock in case of contracts, but if no contracts
     //then it won't get populated
-    RebuildRefundTransaction();
+    if(nHeight != 0){
+        RebuildRefundTransaction();
+    }
     pblocktemplate->vTxFees[0] = -nFees;
 
     uint64_t nSerializeSize = GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION);

@@ -661,7 +661,7 @@ UniValue createrawtransaction(const JSONRPCRequest& request)
             }
 
             // Get gas limit
-            uint64_t nGasLimit=DEFAULT_GAS_LIMIT_OP_SEND;
+            uint64_t nGasLimit=DEFAULT_GAS_LIMIT_OP_FVMSEND;
             if (Contract.exists("gasLimit")){
                 nGasLimit = Contract["gasLimit"].get_int64();
                 if (nGasLimit > blockGasLimit)

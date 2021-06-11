@@ -19,7 +19,7 @@ class CreatecontractTest(BitcoinTestFramework):
         self.num_nodes = 1
 
     def setup_network(self, split=False):
-        self.nodes = start_nodes(self.num_nodes, self.options.tmpdir, [['-txindex=1']])
+        self.nodes = start_nodes(self.num_nodes, self.options.tmpdir, [["-txindex=1"]])
         self.node = self.nodes[0]
         self.is_network_split = False
 
@@ -52,6 +52,7 @@ class CreatecontractTest(BitcoinTestFramework):
         self.node.generate(1)
         
         ret = self.node.getaccountinfo(contract_address)
+        print(ret)
         expected_account_info = {
           "address": contract_address,
           "balance": 0,
@@ -130,7 +131,7 @@ class CreatecontractTest(BitcoinTestFramework):
             }
         }
         """
-        ret = self.node.createcontract("6060604052341561000c57fe5b5b33600060006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505b5b6101c88061005f6000396000f30060606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806313af4035146100515780635e01eb5a1461007f578063893d20e8146100d1575bfe5b61007d600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610123565b005b341561008757fe5b61008f610168565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34156100d957fe5b6100e1610171565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b33600060006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505b50565b60003390505b90565b6000600060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1690505b905600a165627a7a7230582050b454be91cd91e08099814fc2192c5fded81b632733f6c808e4d75e85a766a50029", 1000000, FVM_MIN_GAS_PRICE_STR, "qabmqZk3re5b9UpUcznxDkCnCsnKdmPktT", False)
+        ret = self.node.createcontract("6060604052341561000c57fe5b5b33600060006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505b5b6101c88061005f6000396000f30060606040526000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff16806313af4035146100515780635e01eb5a1461007f578063893d20e8146100d1575bfe5b61007d600480803573ffffffffffffffffffffffffffffffffffffffff16906020019091905050610123565b005b341561008757fe5b61008f610168565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b34156100d957fe5b6100e1610171565b604051808273ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff16815260200191505060405180910390f35b33600060006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505b50565b60003390505b90565b6000600060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1690505b905600a165627a7a7230582050b454be91cd91e08099814fc2192c5fded81b632733f6c808e4d75e85a766a50029", 1000000, FVM_MIN_GAS_PRICE_STR, "TSmfsjbZRZUtAiKQHcNSa6CEAWshB8xuaE", False)
         assert('raw transaction' in ret)
         assert(len(ret.keys()) == 1)
         decoded_tx = self.node.decoderawtransaction(ret['raw transaction'])
@@ -142,8 +143,8 @@ class CreatecontractTest(BitcoinTestFramework):
         assert(False)
 
     def run_test(self):
-        self.nodes[0].generate(COINBASE_MATURITY+50)
-        #self.createcontract_simple_test()
+        self.nodes[0].generate(200)
+        self.createcontract_simple_test()
         #self.createcontract_with_sender_test()
         #self.createcontract_no_broadcast_test()
 

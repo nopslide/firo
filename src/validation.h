@@ -187,8 +187,8 @@ static const int MAX_UNCONNECTING_HEADERS = 10;
 
 static const bool DEFAULT_PEERBLOOMFILTERS = true;
 
-static const uint64_t DEFAULT_GAS_LIMIT_OP_CREATE=2500000;
-static const uint64_t DEFAULT_GAS_LIMIT_OP_SEND=250000;
+static const uint64_t DEFAULT_GAS_LIMIT_OP_FVMCREATE=2500000;
+static const uint64_t DEFAULT_GAS_LIMIT_OP_FVMSEND=250000;
 static const CAmount DEFAULT_GAS_PRICE=0.00000040*COIN;
 static const CAmount MAX_RPC_GAS_PRICE=0.00000100*COIN;
 static const size_t MAX_CONTRACT_VOUTS = 1000; 
