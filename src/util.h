@@ -98,7 +98,7 @@ bool SetupNetworking();
 /** Return true if log accepts specified category */
 bool LogAcceptCategory(const char* category);
 /** Send a string to the log output */
-int LogPrintStr(const std::string &str);
+int LogPrintStr(const std::string &str, bool useVMLog = false); 
 
 #define LogPrint(category, ...) do { \
     if (LogAcceptCategory((category))) { \
@@ -276,5 +276,6 @@ template <typename Callable> void TraceThread(const char* name,  Callable func)
 }
 
 std::string CopyrightHolders(const std::string& strPrefix);
+bool CheckHex(const std::string& str);
 
 #endif // BITCOIN_UTIL_H

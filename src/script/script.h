@@ -199,7 +199,19 @@ enum opcodetype
     OP_LELANTUSJOINSPLIT = 0xc7,
 
     // input for reminting zerocoin to sigma (v3)
-    OP_ZEROCOINTOSIGMAREMINT = 0xc8
+    OP_ZEROCOINTOSIGMAREMINT = 0xc8,
+
+    // Execute EXT byte code.
+    OP_FVMCREATE = 0xd1,
+    OP_FVMCALL = 0xd2,
+    OP_FVMSPEND = 0xd3,
+
+    // template matching params
+    OP_FVMGASPRICE = 0xf5,
+    OP_FVMVERSION = 0xf6,
+    OP_FVMGASLIMIT = 0xf7,
+    OP_FVMDATA = 0xf8
+
 };
 
 const char* GetOpName(opcodetype opcode);
@@ -330,6 +342,29 @@ public:
     {
         return serialize(m_value);
     }
+
+    static uint64_t vch_to_uint64(const std::vector<unsigned char>& vch)
+    {
+        if (vch.size() > 8) {
+            throw scriptnum_error("script number overflow");
+        }
+
+        if (vch.empty())
+            return 0;
+
+        uint64_t result = 0;
+        for (size_t i = 0; i != vch.size(); ++i)
+            result |= static_cast<uint64_t>(vch[i]) << 8*i;
+
+        // If the input vector's most significant byte is 0x80, remove it from
+        // the result's msb and return a negative.
+        if (vch.back() & 0x80)
+            throw scriptnum_error("Negative gas value.");
+            // return -((uint64_t)(result & ~(0x80ULL << (8 * (vch.size() - 1)))));
+
+        return result;
+    }
+
 
     static std::vector<unsigned char> serialize(const int64_t& value)
     {
@@ -654,6 +689,9 @@ public:
     bool IsPayToPublicKeyHash() const;
 
     bool IsPayToScriptHash() const;
+    bool IsPayToPubkey() const;
+    bool IsPayToPubkeyHash() const;
+
     bool IsPayToWitnessScriptHash() const;
     bool IsWitnessProgram(int& version, std::vector<unsigned char>& program) const;
 
@@ -689,6 +727,21 @@ public:
     bool IsUnspendable() const
     {
         return (size() > 0 && *begin() == OP_RETURN) || (size() > MAX_SCRIPT_SIZE);
+    }
+
+    bool HasOpFVMCreate() const
+    {
+        return Find(OP_FVMCREATE) == 1;
+    }
+    
+    bool HasOpFVMCall() const
+    {
+        return Find(OP_FVMCALL) == 1;
+    }
+    
+    bool HasOpFVMSpend() const
+    {
+        return size()==1 && *begin() == OP_FVMSPEND;
     }
 
     void clear()

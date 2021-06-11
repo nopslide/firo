@@ -200,6 +200,17 @@ public:
         return (nValue == -1);
     }
 
+    void SetEmpty()
+    {
+        nValue = 0;
+        scriptPubKey.clear();
+    }
+
+    bool IsEmpty() const
+    {
+        return (nValue == 0 && scriptPubKey.empty());
+    }	
+
     CAmount GetDustThreshold(const CFeeRate &minRelayTxFee) const
     {
         // "Dust" is defined in terms of CTransaction::minRelayTxFee,
@@ -460,6 +471,9 @@ public:
      * @return Total transaction size in bytes
      */
     unsigned int GetTotalSize() const;
+
+    bool HasOpFVMCreateOrCall() const;
+    bool HasOpFVMSpend() const;
 
     bool IsCoinBase() const
     {

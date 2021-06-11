@@ -102,13 +102,26 @@ uint256 CBlockHeader::GetPoWHash(int nHeight) const {
 
 std::string CBlock::ToString() const {
     std::stringstream s;
-    s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",
+    if (IsMTP()) {
+        s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, hashStateRoot=%s, hashUTXORoot=%s, vtx=%u)\n",
+        GetHash().ToString(),
+        nVersion,
+        hashPrevBlock.ToString(),
+        hashMerkleRoot.ToString(),
+        nTime, nBits, nNonce,
+        reserved[0].ToString(), 
+        reserved[1].ToString(), 
+        vtx.size());
+    }else{
+        s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",
         GetHash().ToString(),
         nVersion,
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         nTime, nBits, nNonce,
         vtx.size());
+    }
+    
     for (unsigned int i = 0; i < vtx.size(); i++)
     {
         s << "  " << vtx[i]->ToString() << "\n";

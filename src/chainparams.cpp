@@ -20,7 +20,8 @@
 
 #include "chainparamsseeds.h"
 #include "arith_uint256.h"
-
+#include <libdevcore/SHA3.h>
+#include <libdevcore/RLP.h>
 
 static CBlock CreateGenesisBlock(const char *pszTimestamp, const CScript &genesisOutputScript, uint32_t nTime, uint32_t nNonce,
         uint32_t nBits, int32_t nVersion, const CAmount &genesisReward,
@@ -42,6 +43,7 @@ static CBlock CreateGenesisBlock(const char *pszTimestamp, const CScript &genesi
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
+    genesis.reserved[1] = uint256(h256Touint(dev::sha3(dev::rlp("")))); //hashUTXORoot
     return genesis;
 }
 
@@ -416,6 +418,9 @@ public:
 
         // Bip39
         consensus.nMnemonicBlock = 222400;
+
+        // FVM
+        consensus.nFixUTXOCacheHFHeight = 0;
     }
     virtual bool SkipUndoForBlock(int nHeight) const
     {
@@ -674,6 +679,9 @@ public:
 
         // Bip39
         consensus.nMnemonicBlock = 1;
+
+        // FVM
+        consensus.nFixUTXOCacheHFHeight = 0;
     }
 };
 
@@ -878,6 +886,9 @@ public:
 
         // Bip39
         consensus.nMnemonicBlock = 0;
+
+        // FVM
+        consensus.nFixUTXOCacheHFHeight = 0;
     }
 
     void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)

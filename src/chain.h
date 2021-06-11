@@ -175,6 +175,9 @@ public:
     //! pointer to the index of the predecessor of this block
     CBlockIndex* pprev;
 
+    //! pointer to the index of the successor of this block
+    CBlockIndex* pnext;
+
     //! pointer to the index of some further predecessor of this block
     CBlockIndex* pskip;
 
@@ -256,6 +259,7 @@ public:
     void SetNull()
     {
         phashBlock = NULL;
+        pprev = NULL;
         pprev = NULL;
         pskip = NULL;
         nHeight = 0;

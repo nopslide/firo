@@ -212,6 +212,8 @@ static FILE* fileout = NULL;
 static boost::mutex* mutexDebugLog = NULL;
 static list<string> *vMsgsBeforeOpenLog;
 
+static FILE* fileoutVM = NULL;
+
 static int FileWriteStr(const std::string &str, FILE *fp)
 {
     return fwrite(str.data(), 1, str.size(), fp);
@@ -230,9 +232,12 @@ void OpenDebugLog()
     boost::mutex::scoped_lock scoped_lock(*mutexDebugLog);
 
     assert(fileout == NULL);
+    assert(fileoutVM == NULL); 
     assert(vMsgsBeforeOpenLog);
     boost::filesystem::path pathDebug = GetDataDir() / "debug.log";
+    boost::filesystem::path pathDebugVM = GetDataDir() / "vm.log"; 
     fileout = fopen(pathDebug.string().c_str(), "a");
+    fileoutVM = fopen(pathDebugVM.string().c_str(), "a"); 
     if (fileout) {
         setbuf(fileout, NULL); // unbuffered
         // dump buffered messages from before we opened the log
@@ -241,6 +246,16 @@ void OpenDebugLog()
             vMsgsBeforeOpenLog->pop_front();
         }
     }
+
+    if (fileoutVM) {
+        setbuf(fileoutVM, NULL); // unbuffered
+        // dump buffered messages from before we opened the log
+        while (!vMsgsBeforeOpenLog->empty()) {
+            FileWriteStr(vMsgsBeforeOpenLog->front(), fileoutVM);
+            vMsgsBeforeOpenLog->pop_front();
+        }
+    }
+
 
     delete vMsgsBeforeOpenLog;
     vMsgsBeforeOpenLog = NULL;
@@ -307,11 +322,16 @@ static std::string LogTimestampStr(const std::string &str, std::atomic_bool *fSt
     return strStamped;
 }
 
-int LogPrintStr(const std::string &str)
+int LogPrintStr(const std::string &str, bool useVMLog)
 {
     //A temporary fix for https://github.com/firoorg/firo/issues/1011
     if (fNoDebug && str.compare(0, 6, "ERROR:", 0, 6) != 0)
         return 0;
+    
+    FILE* file = fileout;
+    if(useVMLog){
+        file = fileoutVM;
+    }
 
     int ret = 0; // Returns total number of characters written
     static std::atomic_bool fStartedNewLine(true);
@@ -1037,4 +1057,12 @@ std::string CopyrightHolders(const std::string& strPrefix)
     }
     
     return strCopyrightHolders;
+}
+
+bool CheckHex(const std::string& str) {
+    size_t data=0;
+    if(str.size() > 2 && (str.compare(0, 2, "0x") == 0 || str.compare(0, 2, "0X") == 0)){
+        data=2;
+    }
+    return str.size() > data && str.find_first_not_of("0123456789abcdefABCDEF", data) == std::string::npos;
 }

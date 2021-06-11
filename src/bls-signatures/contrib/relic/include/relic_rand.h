@@ -56,7 +56,7 @@
 #define RAND_SIZE		(sizeof(int))
 #elif RAND == FIPS
 #define RAND_SIZE	    20
-#elif RAND == CALL
+#elif RAND == CALLBLS
 #define RAND_SIZE		(sizeof(void (*)(uint8_t *, int)))
 #elif RAND == RDRND
 #define RAND_SIZE      0
@@ -81,7 +81,7 @@ void rand_init(void);
  */
 void rand_clean(void);
 
-#if RAND != CALL
+#if RAND != CALLBLS
 
 /**
  * Sets the initial state of the pseudo-random number generator.

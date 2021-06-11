@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <boost/function.hpp>
+#include <validation.h> 
 
 class CBlockIndex;
 class CCoinsViewDBCursor;
@@ -145,6 +146,26 @@ public:
     int GetBlockIndexVersion(uint256 const & blockHash);
     bool AddTotalSupply(CAmount const & supply);
     bool ReadTotalSupply(CAmount & supply);
+    
+    bool WriteHeightIndex(const CHeightTxIndexKey &heightIndex, const std::vector<uint256>& hash);
+
+    /**
+     * Iterates through blocks by height, starting from low.
+     *
+     * @param low start iterating from this block height
+     * @param high end iterating at this block height (ignored if <= 0)
+     * @param minconf stop iterating of the block height does not have enough confirmations (ignored if <= 0)
+     * @param blocksOfHashes transaction hashes in blocks iterated are collected into this vector.
+     * @param addresses filter out a block unless it matches one of the addresses in this set.
+     *
+     * @return the height of the latest block iterated. 0 if no block is iterated.
+     */
+    int ReadHeightIndex(int low, int high, int minconf,
+            std::vector<std::vector<uint256>> &blocksOfHashes,
+            std::set<dev::h160> const &addresses);
+    bool EraseHeightIndex(const unsigned int &height);
+    bool WipeHeightIndex();
+
 };
 
 

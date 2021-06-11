@@ -21,7 +21,6 @@
 #include "chainparams.h"
 #include "spentindex.h"
 
-
 #include <algorithm>
 #include <exception>
 #include <map>
@@ -36,6 +35,25 @@
 
 #include <boost/unordered_map.hpp>
 #include <boost/filesystem/path.hpp>
+#include "consensus/consensus.h"
+
+#include <fvm/fvmstate.h>
+#include <fvm/fvmDGP.h>
+#include <libethereum/ChainParams.h>
+#include <libethashseal/Ethash.h>
+#include <libethashseal/GenesisInfo.h>
+#include <script/standard.h>
+#include <fvm/storageresults.h>
+
+extern std::unique_ptr<FvmState> globalState;
+extern std::shared_ptr<dev::eth::SealEngineFace> globalSealEngine;
+extern bool fRecordLogOpcodes;
+extern bool fIsVMlogFile;
+extern bool fGettingValuesDGP;
+
+struct EthTransactionParams;
+using valtype = std::vector<unsigned char>;
+using ExtractFvmTX = std::pair<std::vector<FvmTransaction>, std::vector<EthTransactionParams>>;
 
 class CBlockIndex;
 class CBlockTreeDB;
@@ -48,10 +66,16 @@ class CTxMemPool;
 class CTxPoolAggregate;
 class CValidationInterface;
 class CValidationState;
+class CWallet;
+struct CDiskTxPos;
 struct ChainTxData;
 
 struct PrecomputedTransactionData;
 struct LockPoints;
+
+/** Minimum gas limit that is allowed in a transaction within a block - prevent various types of tx and mempool spam **/
+static const uint64_t MINIMUM_GAS_LIMIT = 10000;
+static const uint64_t MEMPOOL_MIN_GAS_LIMIT = 22000;
 
 /** btzc: update Firo config */
 /** Default for DEFAULT_WHITELISTRELAY. */
@@ -142,6 +166,7 @@ static const int64_t MAX_FEE_ESTIMATION_TIP_AGE = 3 * 60 * 60;
 static const bool DEFAULT_PERMIT_BAREMULTISIG = true;
 static const bool DEFAULT_CHECKPOINTS_ENABLED = true;
 static const bool DEFAULT_TXINDEX = true;
+static const bool DEFAULT_LOGEVENTS = false;
 static const bool DEFAULT_TIMESTAMPINDEX = false;
 static const bool DEFAULT_ADDRESSINDEX = false;
 static const bool DEFAULT_SPENTINDEX = false;
@@ -161,6 +186,13 @@ static const unsigned int MAX_BLOCKS_TO_ANNOUNCE = 8;
 static const int MAX_UNCONNECTING_HEADERS = 10;
 
 static const bool DEFAULT_PEERBLOOMFILTERS = true;
+
+static const uint64_t DEFAULT_GAS_LIMIT_OP_CREATE=2500000;
+static const uint64_t DEFAULT_GAS_LIMIT_OP_SEND=250000;
+static const CAmount DEFAULT_GAS_PRICE=0.00000040*COIN;
+static const CAmount MAX_RPC_GAS_PRICE=0.00000100*COIN;
+static const size_t MAX_CONTRACT_VOUTS = 1000; 
+
 
 // Block Height Lyra2Z
 #define LYRA2Z_HEIGHT 20500
@@ -195,6 +227,7 @@ extern std::atomic_bool fImporting;
 extern bool fReindex;
 extern int nScriptCheckThreads;
 extern bool fTxIndex;
+extern bool fLogEvents;
 extern bool fIsBareMultisigStd;
 extern bool fRequireStandard;
 extern bool fCheckBlockIndex;
@@ -357,22 +390,24 @@ void FlushStateToDisk();
 void PruneAndFlush();
 /** Prune block files up to a given height */
 void PruneBlockFilesManual(int nPruneUpToHeight);
+/** Check if the transaction is confirmed in N previous blocks */
+bool IsConfirmedInNPrevBlocks(const CDiskTxPos& txindex, const CBlockIndex* pindexFrom, int nMaxDepth, int& nActualDepth);
 
 /** (try to) add transaction to memory pool
  * plTxnReplaced will be appended to with all transactions replaced from mempool **/
 bool AcceptToMemoryPool(CTxMemPool& pool, CValidationState &state, const CTransactionRef &tx, bool fLimitFree,
                         bool* pfMissingInputs, std::list<CTransactionRef>* plTxnReplaced = NULL,
-                        bool fOverrideMempoolLimit=false, const CAmount nAbsurdFee=0, bool isCheckWalletTransaction=false, bool markFiroSpendTransactionSerial=true);
+                        bool fOverrideMempoolLimit=false, const CAmount nAbsurdFee=0, bool isCheckWalletTransaction=false, bool markFiroSpendTransactionSerial=true, bool rawTx = false);
 
 /** (try to) add transaction to memory pool with a specified acceptance time **/
 bool AcceptToMemoryPoolWithTime(CTxMemPool& pool, CValidationState &state, const CTransactionRef &tx, bool fLimitFree,
                         bool* pfMissingInputs, int64_t nAcceptTime, std::list<CTransactionRef>* plTxnReplaced = NULL,
-                        bool fOverrideMempoolLimit=false, const CAmount nAbsurdFee=0, bool isCheckWalletTransaction=false, bool markFiroSpendTransactionSerial=true);
+                        bool fOverrideMempoolLimit=false, const CAmount nAbsurdFee=0, bool isCheckWalletTransaction=false, bool markFiroSpendTransactionSerial=true, bool rawTx = false);
 
 /** (try to) add transaction to memory pool and stem pool **/
 bool AcceptToMemoryPool(CTxPoolAggregate& poolAggregate, CValidationState &state, const CTransactionRef &tx, bool fLimitFree,
                         bool* pfMissingInputs, std::list<CTransactionRef>* plTxnReplaced = NULL,
-                        bool fOverrideMempoolLimit=false, const CAmount nAbsurdFee=0, bool isCheckWalletTransaction=false, bool markFiroSpendTransactionSerial=true);
+                        bool fOverrideMempoolLimit=false, const CAmount nAbsurdFee=0, bool isCheckWalletTransaction=false, bool markFiroSpendTransactionSerial=true, bool rawTx = false);
 
 bool GetUTXOCoin(const COutPoint& outpoint, Coin& coin);
 int GetUTXOHeight(const COutPoint& outpoint);
@@ -381,8 +416,73 @@ int GetUTXOConfirmations(const COutPoint& outpoint);
 /** Convert CValidationState to a human-readable message for logging */
 std::string FormatStateMessage(const CValidationState &state);
 
+struct CHeightTxIndexIteratorKey {
+    unsigned int height;
+
+    size_t GetSerializeSize(int nType, int nVersion) const {
+        return 4;
+    }
+    template<typename Stream>
+    void Serialize(Stream& s) const {
+        ser_writedata32be(s, height);
+    }
+    template<typename Stream>
+    void Unserialize(Stream& s) {
+        height = ser_readdata32be(s);
+    }
+
+    CHeightTxIndexIteratorKey(unsigned int _height) {
+        height = _height;
+    }
+
+    CHeightTxIndexIteratorKey() {
+        SetNull();
+    }
+
+    void SetNull() {
+        height = 0;
+    }
+};
+
+struct CHeightTxIndexKey {
+    unsigned int height;
+    dev::h160 address;
+
+    size_t GetSerializeSize(int nType, int nVersion) const {
+        return 24;
+    }
+    template<typename Stream>
+    void Serialize(Stream& s) const {
+        ser_writedata32be(s, height);
+        s << address.asBytes();
+    }
+    template<typename Stream>
+    void Unserialize(Stream& s) {
+        height = ser_readdata32be(s);
+        valtype tmp;
+        s >> tmp;
+        address = dev::h160(tmp);
+    }
+
+    CHeightTxIndexKey(unsigned int _height, dev::h160 _address) {
+        height = _height;
+        address = _address;
+    }
+
+    CHeightTxIndexKey() {
+        SetNull();
+    }
+
+    void SetNull() {
+        height = 0;
+        address.clear();
+    }
+};
+
+
 /** Get the BIP9 state for a given deployment at the current tip. */
 ThresholdState VersionBitsTipState(const Consensus::Params& params, Consensus::DeploymentPos pos);
+
 
 /** Get the block height at which the BIP9 deployment switched into the state for the block building on the current tip. */
 int VersionBitsTipStateSinceHeight(const Consensus::Params& params, Consensus::DeploymentPos pos);
@@ -438,6 +538,12 @@ namespace Consensus {
 bool CheckTxInputs(const CTransaction& tx, CValidationState& state, const CCoinsViewCache& inputs, int nSpendHeight);
 
 } // namespace Consensus
+
+/**
+ * Check if coinstake transaction timestamp is bigger than the previous
+ */
+bool CheckTransactionTimestamp(const CTransaction& tx, const uint32_t& nTimeBlock, CBlockTreeDB& txdb);
+
 
 bool CheckZerocoinFoundersInputs(const CTransaction &tx, CValidationState &state, const Consensus::Params &params, int nHeight, bool fMTP);
 
@@ -534,14 +640,17 @@ bool GetAddressUnspent(uint160 addressHash, AddressType type,
 
 /** Functions for disk access for blocks */
 bool WriteBlockToDisk(const CBlock& block, CDiskBlockPos& pos, const CMessageHeader::MessageStartChars& messageStart);
-bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, int nHeight, const Consensus::Params& consensusParams);
+bool ReadBlockFromDisk(CBlock& block, const CDiskBlockPos& pos, const Consensus::Params& consensusParams);
 bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus::Params& consensusParams);
+bool ReadFromDisk(CBlockHeader& block, unsigned int nFile, unsigned int nBlockPos);
+bool ReadFromDisk(CMutableTransaction& tx, CDiskTxPos& txindex, CBlockTreeDB& txdb, COutPoint prevout);
 
 /** Functions for validating blocks and updating the block tree */
 
 /** Context-independent validity checks */
 bool CheckBlockHeader(const CBlockHeader& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true);
 bool CheckBlock(const CBlock& block, CValidationState& state, const Consensus::Params& consensusParams, bool fCheckPOW = true, bool fCheckMerkleRoot = true, int nHeight = INT_MAX, bool isVerifyDB = false);
+bool CheckIndexProof(const CBlockIndex& block, const Consensus::Params& consensusParams);
 
 bool IsTransactionInChain(const uint256& txId, int& nHeightTx, CTransactionRef & tx);
 bool IsTransactionInChain(const uint256& txId, int& nHeightTx);
@@ -612,6 +721,8 @@ extern CCoinsViewCache *pcoinsTip;
 /** Global variable that points to the active block tree (protected by cs_main) */
 extern CBlockTreeDB *pblocktree;
 
+extern StorageResults *pstorageresult;
+
 /**
  * Return the spend height, which is one more than the inputs.GetBestBlock().
  * While checking, GetBestBlock() refers to the parent block. (protected by cs_main)
@@ -646,5 +757,94 @@ void DumpMempool();
 
 /** Load the mempool from disk. */
 bool LoadMempool();
+
+std::vector<ResultExecute> CallContract(const dev::Address& addrContract, std::vector<unsigned char> opcode, const dev::Address& sender = dev::Address(), uint64_t gasLimit=0);
+
+bool CheckSenderScript(const CCoinsViewCache& view, const CTransaction& tx);
+
+bool CheckMinGasPrice(std::vector<EthTransactionParams>& etps, const uint64_t& minGasPrice);
+
+struct ByteCodeExecResult;
+
+void EnforceContractVoutLimit(ByteCodeExecResult& bcer, ByteCodeExecResult& bcerOut, const dev::h256& oldHashFiroRoot,
+    const dev::h256& oldHashStateRoot, const std::vector<FvmTransaction>& transactions);
+
+void writeVMlog(const std::vector<ResultExecute>& res, const CTransaction& tx = CTransaction(), const CBlock& block = CBlock());
+
+struct EthTransactionParams{
+    VersionVM version;
+    dev::u256 gasLimit;
+    dev::u256 gasPrice;
+    valtype code;
+    dev::Address receiveAddress;
+
+    bool operator!=(EthTransactionParams etp){
+        if(this->version.toRaw() != etp.version.toRaw() || this->gasLimit != etp.gasLimit ||
+        this->gasPrice != etp.gasPrice || this->code != etp.code ||
+        this->receiveAddress != etp.receiveAddress)
+            return true;
+        return false;
+    }
+};
+
+struct ByteCodeExecResult{
+    uint64_t usedGas = 0;
+    CAmount refundSender = 0;
+    std::vector<CTxOut> refundOutputs;
+    std::vector<CTransaction> valueTransfers;
+};
+
+class FvmTxConverter{
+
+public:
+
+    FvmTxConverter(CTransaction tx, CCoinsViewCache* v = NULL, const std::vector<CTransactionRef>* blockTxs = NULL) : txBit(tx), view(v), blockTransactions(blockTxs){}
+
+    bool extractionFvmTransactions(ExtractFvmTX& fvmTx);
+
+private:
+
+    bool receiveStack(const CScript& scriptPubKey);
+
+    bool parseEthTXParams(EthTransactionParams& params);
+
+    FvmTransaction createEthTX(const EthTransactionParams& etp, const uint32_t nOut);
+
+    const CTransaction txBit;
+    const CCoinsViewCache* view;
+    std::vector<valtype> stack;
+    opcodetype opcode;
+    const std::vector<CTransactionRef> *blockTransactions;
+
+};
+
+class ByteCodeExec {
+
+public:
+
+    ByteCodeExec(const CBlock& _block, std::vector<FvmTransaction> _txs, const uint64_t _blockGasLimit) : txs(_txs), block(_block), blockGasLimit(_blockGasLimit) {}
+
+    bool performByteCode(dev::eth::Permanence type = dev::eth::Permanence::Committed);
+
+    bool processingResults(ByteCodeExecResult& result);
+
+    std::vector<ResultExecute>& getResult(){ return result; }
+
+private:
+
+    dev::eth::EnvInfo BuildEVMEnvironment();
+
+    dev::Address EthAddrFromScript(const CScript& scriptIn);
+
+    std::vector<FvmTransaction> txs;
+
+    std::vector<ResultExecute> result;
+
+    const CBlock& block;
+
+    const uint64_t blockGasLimit;
+
+};
+
 
 #endif // BITCOIN_VALIDATION_H

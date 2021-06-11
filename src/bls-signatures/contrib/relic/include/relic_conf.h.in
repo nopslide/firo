@@ -669,7 +669,7 @@
 /** FIPS 186-2 (CN1) SHA-1 based generator. */
 #define FIPS     5
 /** Override library generator with the callback. */
-#define CALL     6
+#define CALLBLS     6
 /** Chosen random generator. */
 #define RAND     @RAND@
 

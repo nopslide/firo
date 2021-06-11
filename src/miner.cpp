@@ -155,7 +155,22 @@ void BlockAssembler::resetBlock()
     nLelantusSpendInputs = 0;
 }
 
-std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx)
+void BlockAssembler::RebuildRefundTransaction(){
+    int refundtx=0; //0 for coinbase in PoW
+    CMutableTransaction contrTx(originalRewardTx);
+    contrTx.vout[refundtx].nValue = nFees + GetBlockSubsidy(nHeight, chainparams.GetConsensus());
+    contrTx.vout[refundtx].nValue -= bceResult.refundSender;
+    //note, this will need changed for MPoS
+    int i=contrTx.vout.size();
+    contrTx.vout.resize(contrTx.vout.size()+bceResult.refundOutputs.size());
+    for(CTxOut& vout : bceResult.refundOutputs){
+        contrTx.vout[i]=vout;
+        i++;
+    }
+    pblock->vtx[refundtx] = MakeTransactionRef(std::move(contrTx));
+}
+
+std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& scriptPubKeyIn, bool fMineWitnessTx, int64_t* pTotalFees, int32_t nTimeLimit)
 {
     // Create new block
     LogPrintf("BlockAssembler::CreateNewBlock()\n");
@@ -172,6 +187,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     if(!pblocktemplate.get())
         return nullptr;
     pblock = &pblocktemplate->block; // pointer for convenience
+
+    this->nTimeLimit = nTimeLimit;
 
     // Add dummy coinbase tx as first transaction
     pblock->vtx.emplace_back();
@@ -226,8 +243,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
         LOCK(mempool.cs);
         FillBlackListForBlockTemplate();
 
-        addPriorityTxs();
-        addPackageTxs(nPackagesSelected, nDescendantsUpdated);
+        // addPriorityTxs();
+        // addPackageTxs(nPackagesSelected, nDescendantsUpdated);
     }
 
     int64_t nTime1 = GetTimeMicros();
@@ -284,10 +301,43 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     FillBlockPayments(coinbaseTx, nHeight, nBlockSubsidy, pblocktemplate->voutMasternodePayments, sbPayments);
 
     pblock->vtx[0] = MakeTransactionRef(std::move(coinbaseTx));
+    FvmDGP fvmDGP(globalState.get(), fGettingValuesDGP);
+    globalSealEngine->setFvmSchedule(fvmDGP.getGasSchedule(nHeight));
+    uint32_t blockSizeDGP = fvmDGP.getBlockSize(nHeight);
+    minGasPrice = fvmDGP.getMinGasPrice(nHeight);
+    if(IsArgSet("-min-tx-gas-price")) {
+        CAmount minGasPriceValue;
+        if(ParseMoney(GetArg("-min-tx-gas-price", ""), minGasPriceValue)) {
+            minGasPrice = std::max(minGasPrice, (uint64_t)minGasPriceValue);
+        }
+    }
+    hardBlockGasLimit = fvmDGP.getBlockGasLimit(nHeight);
+    softBlockGasLimit = GetArg("-soft-block-gas-limit", hardBlockGasLimit);
+    softBlockGasLimit = std::min(softBlockGasLimit, hardBlockGasLimit);
+    txGasLimit = GetArg("-max-tx-gas-limit", softBlockGasLimit);
+
+    nBlockMaxSize = blockSizeDGP ? blockSizeDGP : nBlockMaxSize;
+    
+    dev::h256 oldHashStateRoot(globalState->rootHash());
+    dev::h256 oldHashUTXORoot(globalState->rootHashUTXO());
+    addPriorityTxs(minGasPrice);
+    addPackageTxs(minGasPrice);
+    pblock->reserved[0] = uint256(h256Touint(dev::h256(globalState->rootHash())));
+    pblock->reserved[1] = uint256(h256Touint(dev::h256(globalState->rootHashUTXO())));
+    globalState->setRoot(oldHashStateRoot);
+    globalState->setRootUTXO(oldHashUTXORoot);
+
+    //this should already be populated by AddBlock in case of contracts, but if no contracts
+    //then it won't get populated
+    RebuildRefundTransaction();
     pblocktemplate->vTxFees[0] = -nFees;
 
     uint64_t nSerializeSize = GetSerializeSize(*pblock, SER_NETWORK, PROTOCOL_VERSION);
     LogPrintf("CreateNewBlock(): total size: %u block weight: %u txs: %u fees: %ld sigops %d\n", nSerializeSize, GetBlockWeight(*pblock), nBlockTx, nFees, nBlockSigOpsCost);
+
+    // The total fee is the Fees minus the Refund
+    if (pTotalFees)
+        *pTotalFees = nFees - bceResult.refundSender;
 
     // Fill in header
     pblock->hashPrevBlock  = pindexPrev->GetBlockHash();
@@ -454,6 +504,162 @@ bool BlockAssembler::TestForBlock(CTxMemPool::txiter iter)
     return true;
 }
 
+bool BlockAssembler::CheckBlockBeyondFull()
+{
+    if (nBlockSize > nBlockMaxSize) {
+        return false;
+    }
+
+    if (nBlockSigOpsCost * WITNESS_SCALE_FACTOR > (uint64_t)MAX_BLOCK_SIGOPS_COST) {
+        return false;
+    }
+    return true;
+}
+
+bool BlockAssembler::AttemptToAddContractToBlock(CTxMemPool::txiter iter, uint64_t minGasPrice) {
+    if (nTimeLimit != 0 && GetAdjustedTime() >= nTimeLimit - BYTECODE_TIME_BUFFER) {
+        return false;
+    }
+    
+    dev::h256 oldHashStateRoot(globalState->rootHash());
+    dev::h256 oldHashUTXORoot(globalState->rootHashUTXO());
+    // operate on local vars first, then later apply to `this`
+    uint64_t nBlockWeight = this->nBlockWeight;
+    uint64_t nBlockSize = this->nBlockSize;
+    uint64_t nBlockSigOpsCost = this->nBlockSigOpsCost;
+
+    FvmTxConverter convert(iter->GetTx(), NULL, &pblock->vtx);
+
+    ExtractFvmTX resultConverter;
+    if(!convert.extractionFvmTransactions(resultConverter)){
+        //this check already happens when accepting txs into mempool
+        //therefore, this can only be triggered by using raw transactions on the staker itself
+        return false;
+    }
+    std::vector<FvmTransaction> fvmTransactions = resultConverter.first;
+    dev::u256 txGas = 0;
+    for(FvmTransaction fvmTransaction : fvmTransactions){
+        txGas += fvmTransaction.gas();
+        if(txGas > txGasLimit) {
+            // Limit the tx gas limit by the soft limit if such a limit has been specified.
+            return false;
+        }
+
+        if(bceResult.usedGas + fvmTransaction.gas() > softBlockGasLimit){
+            //if this transaction's gasLimit could cause block gas limit to be exceeded, then don't add it
+            return false;
+        }
+        if(fvmTransaction.gasPrice() < minGasPrice){
+            //if this transaction's gasPrice is less than the current DGP minGasPrice don't add it
+            return false;
+        }
+    }
+    // We need to pass the DGP's block gas limit (not the soft limit) since it is consensus critical.
+    ByteCodeExec exec(*pblock, fvmTransactions, hardBlockGasLimit);
+    if(!exec.performByteCode()){
+        //error, don't add contract
+        globalState->setRoot(oldHashStateRoot);
+        globalState->setRootUTXO(oldHashUTXORoot);
+        return false;
+    }
+
+    ByteCodeExecResult testExecResult;
+    if(!exec.processingResults(testExecResult)){
+        globalState->setRoot(oldHashStateRoot);
+        globalState->setRootUTXO(oldHashUTXORoot);
+        return false;
+    }
+
+    if(bceResult.usedGas + testExecResult.usedGas > softBlockGasLimit){
+        //if this transaction could cause block gas limit to be exceeded, then don't add it
+        globalState->setRoot(oldHashStateRoot);
+        globalState->setRootUTXO(oldHashUTXORoot);
+        return false;
+    }
+
+    //apply contractTx costs to local state
+    if (fNeedSizeAccounting) {
+        nBlockSize += ::GetSerializeSize(iter->GetTx(), SER_NETWORK, PROTOCOL_VERSION);
+    }
+    nBlockWeight += iter->GetTxWeight();
+    nBlockSigOpsCost += iter->GetSigOpCost();
+    //apply value-transfer txs to local state
+    for (CTransaction &t : testExecResult.valueTransfers) {
+        if (fNeedSizeAccounting) {
+            nBlockSize += ::GetSerializeSize(t, SER_NETWORK, PROTOCOL_VERSION);
+        }
+        nBlockWeight += GetTransactionWeight(t);
+        nBlockSigOpsCost += GetLegacySigOpCount(t);
+    }
+
+    // int proofTx = pblock->IsProofOfStake() ? 1 : 0;
+    int proofTx = 0;
+
+    //calculate sigops from new refund/proof tx
+
+    //first, subtract old proof tx
+    nBlockSigOpsCost -= GetLegacySigOpCount(*pblock->vtx[proofTx]);
+
+    // manually rebuild refundtx
+    CMutableTransaction contrTx(*pblock->vtx[proofTx]);
+    //note, this will need changed for MPoS
+    int i=contrTx.vout.size();
+    contrTx.vout.resize(contrTx.vout.size()+testExecResult.refundOutputs.size());
+    for(CTxOut& vout : testExecResult.refundOutputs){
+        contrTx.vout[i]=vout;
+        i++;
+    }
+    nBlockSigOpsCost += GetLegacySigOpCount(contrTx);
+    //all contract costs now applied to local state
+
+    //Check if block will be too big or too expensive with this contract execution
+    if (nBlockSigOpsCost * WITNESS_SCALE_FACTOR > (uint64_t)MAX_BLOCK_SIGOPS_COST ||
+            nBlockSize > nBlockMaxSize) {
+        //contract will not be added to block, so revert state to before we tried
+        globalState->setRoot(oldHashStateRoot);
+        globalState->setRootUTXO(oldHashUTXORoot);
+        return false;
+    }
+
+    //block is not too big, so apply the contract execution and it's results to the actual block
+
+    //apply local bytecode to global bytecode state
+    bceResult.usedGas += testExecResult.usedGas;
+    bceResult.refundSender += testExecResult.refundSender;
+    bceResult.refundOutputs.insert(bceResult.refundOutputs.end(), testExecResult.refundOutputs.begin(), testExecResult.refundOutputs.end());
+    bceResult.valueTransfers = std::move(testExecResult.valueTransfers);
+
+    pblock->vtx.emplace_back(iter->GetSharedTx());
+    pblocktemplate->vTxFees.push_back(iter->GetFee());
+    pblocktemplate->vTxSigOpsCost.push_back(iter->GetSigOpCost());
+    if (fNeedSizeAccounting) {
+        this->nBlockSize += ::GetSerializeSize(iter->GetTx(), SER_NETWORK, PROTOCOL_VERSION);
+    }
+    this->nBlockWeight += iter->GetTxWeight();
+    ++nBlockTx;
+    this->nBlockSigOpsCost += iter->GetSigOpCost();
+    nFees += iter->GetFee();
+    inBlock.insert(iter);
+
+    for (CTransaction &t : bceResult.valueTransfers) {
+        pblock->vtx.emplace_back(MakeTransactionRef(std::move(t)));
+        if (fNeedSizeAccounting) {
+            this->nBlockSize += ::GetSerializeSize(t, SER_NETWORK, PROTOCOL_VERSION);
+        }
+        this->nBlockWeight += GetTransactionWeight(t);
+        this->nBlockSigOpsCost += GetLegacySigOpCount(t);
+        ++nBlockTx;
+    }
+    //calculate sigops from new refund/proof tx
+    this->nBlockSigOpsCost -= GetLegacySigOpCount(*pblock->vtx[proofTx]);
+    RebuildRefundTransaction();
+    this->nBlockSigOpsCost += GetLegacySigOpCount(*pblock->vtx[proofTx]);
+
+    bceResult.valueTransfers.clear();
+
+    return true;
+}
+
 void BlockAssembler::AddToBlock(CTxMemPool::txiter iter)
 {
     const CTransaction &tx = iter->GetTx();
@@ -567,6 +773,7 @@ void BlockAssembler::SortForBlock(const CTxMemPool::setEntries& package, CTxMemP
     std::sort(sortedEntries.begin(), sortedEntries.end(), CompareTxIterByAncestorCount());
 }
 
+/*
 // This transaction selection algorithm orders the mempool based
 // on feerate of a transaction including all unconfirmed ancestors.
 // Since we don't remove transactions from the mempool as we select them
@@ -706,7 +913,9 @@ void BlockAssembler::addPackageTxs(int &nPackagesSelected, int &nDescendantsUpda
         nDescendantsUpdated += UpdatePackagesForAdded(ancestors, mapModifiedTx);
     }
 }
+*/
 
+/*
 void BlockAssembler::addPriorityTxs()
 {
     // How much of the block should be dedicated to high-priority transactions,
@@ -794,6 +1003,7 @@ void BlockAssembler::addPriorityTxs()
     }
     fNeedSizeAccounting = fSizeAccounting;
 }
+*/
 
 void BlockAssembler::FillFoundersReward(CMutableTransaction &coinbaseTx, bool fMTP) {
     auto &params = chainparams.GetConsensus();
@@ -877,6 +1087,252 @@ void BlockAssembler::FillFoundersReward(CMutableTransaction &coinbaseTx, bool fM
             coinbaseTx.vout.push_back(CTxOut(1 * coin, CScript(FOUNDER_5_SCRIPT.begin(), FOUNDER_5_SCRIPT.end())));
         }
     }
+}
+
+// This transaction selection algorithm orders the mempool based
+// on feerate of a transaction including all unconfirmed ancestors.
+// Since we don't remove transactions from the mempool as we select them
+// for block inclusion, we need an alternate method of updating the feerate
+// of a transaction with its not-yet-selected ancestors as we go.
+// This is accomplished by walking the in-mempool descendants of selected
+// transactions and storing a temporary modified state in mapModifiedTxs.
+// Each time through the loop, we compare the best transaction in
+// mapModifiedTxs with the next transaction in the mempool to decide what
+// transaction package to work on next.
+void BlockAssembler::addPackageTxs(uint64_t minGasPrice)
+{
+    // mapModifiedTx will store sorted packages after they are modified
+    // because some of their txs are already in the block
+    indexed_modified_transaction_set mapModifiedTx;
+    // Keep track of entries that failed inclusion, to avoid duplicate work
+    CTxMemPool::setEntries failedTx;
+
+    // Start by adding all descendants of previously added txs to mapModifiedTx
+    // and modifying them for their already included ancestors
+    UpdatePackagesForAdded(inBlock, mapModifiedTx);
+
+    CTxMemPool::indexed_transaction_set::index<ancestor_score_or_gas_price>::type::iterator mi = mempool.mapTx.get<ancestor_score_or_gas_price>().begin();
+    CTxMemPool::txiter iter;
+    while (mi != mempool.mapTx.get<ancestor_score_or_gas_price>().end() || !mapModifiedTx.empty())
+    {
+        if(nTimeLimit != 0 && GetAdjustedTime() >= nTimeLimit){
+            //no more time to add transactions, just exit
+            return;
+        }
+        // First try to find a new transaction in mapTx to evaluate.
+        if (mi != mempool.mapTx.get<ancestor_score_or_gas_price>().end() &&
+                SkipMapTxEntry(mempool.mapTx.project<0>(mi), mapModifiedTx, failedTx)) {
+            ++mi;
+            continue;
+        }
+
+        // Now that mi is not stale, determine which transaction to evaluate:
+        // the next entry from mapTx, or the best from mapModifiedTx?
+        bool fUsingModified = false;
+
+        modtxscoreiter modit = mapModifiedTx.get<ancestor_score_or_gas_price>().begin();
+        if (mi == mempool.mapTx.get<ancestor_score_or_gas_price>().end()) {
+            // We're out of entries in mapTx; use the entry from mapModifiedTx
+            iter = modit->iter;
+            fUsingModified = true;
+        } else {
+            // Try to compare the mapTx entry to the mapModifiedTx entry
+            iter = mempool.mapTx.project<0>(mi);
+            if (modit != mapModifiedTx.get<ancestor_score_or_gas_price>().end() &&
+                    CompareModifiedEntry()(*modit, CTxMemPoolModifiedEntry(iter))) {
+                // The best entry in mapModifiedTx has higher score
+                // than the one from mapTx.
+                // Switch which transaction (package) to consider
+                iter = modit->iter;
+                fUsingModified = true;
+            } else {
+                // Either no entry in mapModifiedTx, or it's worse than mapTx.
+                // Increment mi for the next loop iteration.
+                ++mi;
+            }
+        }
+
+        // We skip mapTx entries that are inBlock, and mapModifiedTx shouldn't
+        // contain anything that is inBlock.
+        assert(!inBlock.count(iter));
+
+        uint64_t packageSize = iter->GetSizeWithAncestors();
+        CAmount packageFees = iter->GetModFeesWithAncestors();
+        int64_t packageSigOpsCost = iter->GetSigOpCostWithAncestors();
+        if (fUsingModified) {
+            packageSize = modit->nSizeWithAncestors;
+            packageFees = modit->nModFeesWithAncestors;
+            packageSigOpsCost = modit->nSigOpCostWithAncestors;
+        }
+
+        if (packageFees < blockMinFeeRate.GetFee(packageSize)) {
+            // Everything else we might consider has a lower fee rate
+            return;
+        }
+
+        if (!TestPackage(packageSize, packageSigOpsCost)) {
+            if (fUsingModified) {
+                // Since we always look at the best entry in mapModifiedTx,
+                // we must erase failed entries so that we can consider the
+                // next best entry on the next loop iteration
+                mapModifiedTx.get<ancestor_score_or_gas_price>().erase(modit);
+                failedTx.insert(iter);
+            }
+            continue;
+        }
+
+        CTxMemPool::setEntries ancestors;
+        uint64_t nNoLimit = std::numeric_limits<uint64_t>::max();
+        std::string dummy;
+        mempool.CalculateMemPoolAncestors(*iter, ancestors, nNoLimit, nNoLimit, nNoLimit, nNoLimit, dummy, false);
+
+        onlyUnconfirmed(ancestors);
+        ancestors.insert(iter);
+
+        // Test if all tx's are Final
+        if (!TestPackageTransactions(ancestors)) {
+            if (fUsingModified) {
+                mapModifiedTx.get<ancestor_score_or_gas_price>().erase(modit);
+                failedTx.insert(iter);
+            }
+            continue;
+        }
+
+        // Package can be added. Sort the entries in a valid order.
+        std::vector<CTxMemPool::txiter> sortedEntries;
+        SortForBlock(ancestors, iter, sortedEntries);
+
+        bool wasAdded=true;
+        for (size_t i=0; i<sortedEntries.size(); ++i) {
+            if(!wasAdded || (nTimeLimit != 0 && GetAdjustedTime() >= nTimeLimit))
+            {
+                //if out of time, or earlier ancestor failed, then skip the rest of the transactions
+                mapModifiedTx.erase(sortedEntries[i]);
+                wasAdded=false;
+                continue;
+            }
+            const CTransaction& tx = sortedEntries[i]->GetTx();
+            if(wasAdded) {
+                if (tx.HasOpFVMCreateOrCall()) {
+                    wasAdded = AttemptToAddContractToBlock(sortedEntries[i], minGasPrice);
+                    if(!wasAdded){
+                        if(fUsingModified) {
+                            //this only needs to be done once to mark the whole package (everything in sortedEntries) as failed
+                            mapModifiedTx.get<ancestor_score_or_gas_price>().erase(modit);
+                            failedTx.insert(iter);
+                        }
+                    }
+                } else {
+                    AddToBlock(sortedEntries[i]);
+                }
+            }
+            // Erase from the modified set, if present
+            mapModifiedTx.erase(sortedEntries[i]);
+        }
+
+        if(!wasAdded){
+            //skip UpdatePackages if a transaction failed to be added (match TestPackage logic)
+            continue;
+        }
+
+        // Update transactions that depend on each of these
+        UpdatePackagesForAdded(ancestors, mapModifiedTx);
+    }
+}
+
+void BlockAssembler::addPriorityTxs(uint64_t minGasPrice)
+{
+    // How much of the block should be dedicated to high-priority transactions,
+    // included regardless of the fees they pay
+    unsigned int nBlockPrioritySize = GetArg("-blockprioritysize", DEFAULT_BLOCK_PRIORITY_SIZE);
+    nBlockPrioritySize = std::min(nBlockMaxSize, nBlockPrioritySize);
+
+    if (nBlockPrioritySize == 0) {
+        return;
+    }
+
+    bool fSizeAccounting = fNeedSizeAccounting;
+    fNeedSizeAccounting = true;
+
+    // This vector will be sorted into a priority queue:
+    std::vector<TxCoinAgePriority> vecPriority;
+    TxCoinAgePriorityCompare pricomparer;
+    std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash> waitPriMap;
+    typedef std::map<CTxMemPool::txiter, double, CTxMemPool::CompareIteratorByHash>::iterator waitPriIter;
+    double actualPriority = -1;
+
+    vecPriority.reserve(mempool.mapTx.size());
+    for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
+         mi != mempool.mapTx.end(); ++mi)
+    {
+        double dPriority = mi->GetPriority(nHeight);
+        CAmount dummy;
+        mempool.ApplyDeltas(mi->GetTx().GetHash(), dPriority, dummy);
+        vecPriority.push_back(TxCoinAgePriority(dPriority, mi));
+    }
+    std::make_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
+
+    CTxMemPool::txiter iter;
+    while (!vecPriority.empty() && !blockFinished) { // add a tx from priority queue to fill the blockprioritysize
+        iter = vecPriority.front().second;
+        actualPriority = vecPriority.front().first;
+        std::pop_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
+        vecPriority.pop_back();
+
+        // If tx already in block, skip
+        if (inBlock.count(iter)) {
+            assert(false); // shouldn't happen for priority txs
+            continue;
+        }
+
+        // cannot accept witness transactions into a non-witness block
+        if (!fIncludeWitness && iter->GetTx().HasWitness())
+            continue;
+
+
+        if(nTimeLimit != 0 && GetAdjustedTime() >= nTimeLimit)
+        {
+            break;
+        }
+
+        // If tx is dependent on other mempool txs which haven't yet been included
+        // then put it in the waitSet
+        if (isStillDependent(iter)) {
+            waitPriMap.insert(std::make_pair(iter, actualPriority));
+            continue;
+        }
+
+        // If this tx fits in the block add it, otherwise keep looping
+        if (TestForBlock(iter)) {
+
+            const CTransaction& tx = iter->GetTx();
+            bool wasAdded=true;
+            if(tx.HasOpFVMCreateOrCall()) {
+                wasAdded = AttemptToAddContractToBlock(iter, minGasPrice);
+            }else {
+                AddToBlock(iter);
+            }
+
+            // If now that this txs is added we've surpassed our desired priority size
+            // or have dropped below the AllowFreeThreshold, then we're done adding priority txs
+            if (nBlockSize >= nBlockPrioritySize || !AllowFree(actualPriority)) {
+                break;
+            }
+            if(wasAdded) {
+                // This tx was successfully added, so
+                // add transactions that depend on this one to the priority queue to try again
+                BOOST_FOREACH(CTxMemPool::txiter child, mempool.GetMemPoolChildren(iter)) {
+                                waitPriIter wpiter = waitPriMap.find(child);
+                                if (wpiter != waitPriMap.end()) {
+                                    vecPriority.push_back(TxCoinAgePriority(wpiter->second, child));
+                                    std::push_heap(vecPriority.begin(), vecPriority.end(), pricomparer);
+                                    waitPriMap.erase(wpiter);
+                                }
+                            }
+            }
+        }
+    }
+    fNeedSizeAccounting = fSizeAccounting;
 }
 
 void BlockAssembler::FillBlackListForBlockTemplate() {
@@ -1077,7 +1533,8 @@ void static FiroMiner(const CChainParams &chainparams) {
                 LogPrintf("loop pindexPrev->nHeight=%s\n", pindexPrev->nHeight);
             }
             LogPrintf("BEFORE: pblocktemplate\n");
-            std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(Params()).CreateNewBlock(coinbaseScript->reserveScript, {});
+            int64_t nTotalFees = 0;
+            std::unique_ptr<CBlockTemplate> pblocktemplate = BlockAssembler(Params()).CreateNewBlock(coinbaseScript->reserveScript, {}, &nTotalFees);
             LogPrintf("AFTER: pblocktemplate\n");
             if (!pblocktemplate.get()) {
                 LogPrintf("Error in FiroMiner: Keypool ran out, please call keypoolrefill before restarting the mining thread\n");

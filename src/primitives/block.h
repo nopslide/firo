@@ -209,6 +209,7 @@ public:
     void InvalidateCachedPoWHash(int nHeight) const;
 
     bool IsMTP() const;
+
 };
 
 class CBlock : public CBlockHeader

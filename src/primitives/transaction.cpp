@@ -282,3 +282,22 @@ int64_t GetTransactionWeight(const CTransaction& tx)
 {
     return ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION | SERIALIZE_TRANSACTION_NO_WITNESS) * (WITNESS_SCALE_FACTOR -1) + ::GetSerializeSize(tx, SER_NETWORK, PROTOCOL_VERSION);
 }
+
+bool CTransaction::HasOpFVMCreateOrCall() const{
+    for(const CTxOut& v : vout){
+        if(v.scriptPubKey.HasOpFVMCreate() || v.scriptPubKey.HasOpFVMCall()){
+            return true;
+        }
+    }
+    return false;
+}
+
+bool CTransaction::HasOpFVMSpend() const{
+    for(const CTxIn& i : vin){
+        if(i.scriptSig.HasOpFVMSpend()){
+            return true;
+        }
+    }
+    return false;
+}
+

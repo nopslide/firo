@@ -300,6 +300,12 @@ void Shutdown()
         deterministicMNManager = NULL;
         delete evoDb;
         evoDb = NULL;
+
+        delete pstorageresult;
+        pstorageresult = NULL;
+	    delete globalState.release();
+        globalSealEngine.reset();
+
     }
 
 #ifdef ENABLE_ELYSIUM
@@ -445,12 +451,14 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-prune=<n>", strprintf(_("Reduce storage requirements by enabling pruning (deleting) of old blocks. This allows the pruneblockchain RPC to be called to delete specific blocks, and enables automatic pruning of old blocks if a target size in MiB is provided. This mode is incompatible with -txindex and -rescan. "
             "Warning: Reverting this setting requires re-downloading the entire blockchain. "
             "(default: 0 = disable pruning blocks, 1 = allow manual pruning via RPC, >%u = automatically prune block files to stay under the specified target size in MiB)"), MIN_DISK_SPACE_FOR_BLOCK_FILES / 1024 / 1024));
+    strUsage += HelpMessageOpt("-record-log-opcodes", strprintf(_("Logs all FVM LOG opcode operations to the file vmExecLogs.json")));
     strUsage += HelpMessageOpt("-reindex-chainstate", _("Rebuild chain state from the currently indexed blocks"));
     strUsage += HelpMessageOpt("-reindex", _("Rebuild chain state and block index from the blk*.dat files on disk"));
 #ifndef WIN32
     strUsage += HelpMessageOpt("-sysperms", _("Create new files with system default permissions, instead of umask 077 (only effective with disabled wallet functionality)"));
 #endif
     strUsage += HelpMessageOpt("-txindex", strprintf(_("Maintain a full transaction index, used by the getrawtransaction rpc call (default: %u)"), DEFAULT_TXINDEX));
+    strUsage += HelpMessageOpt("-logevents", strprintf(_("Maintain a full FVM log index, used by searchlogs and gettransactionreceipt rpc calls (default: %u)"), DEFAULT_LOGEVENTS));
 
     strUsage += HelpMessageGroup(_("Connection options:"));
     strUsage += HelpMessageOpt("-addnode=<ip>", _("Add a node to connect to and attempt to keep the connection open"));
@@ -482,6 +490,9 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-torsetup", strprintf(_("Anonymous communication with TOR - Quickstart (default: %d)"), DEFAULT_TOR_SETUP));
     strUsage += HelpMessageOpt("-torcontrol=<ip>:<port>", strprintf(_("Tor control port to use if onion listening enabled (default: %s)"), DEFAULT_TOR_CONTROL));
     strUsage += HelpMessageOpt("-torpassword=<pass>", _("Tor control port password (default: empty)"));
+    strUsage += HelpMessageOpt("-dgpstorage", _("Receiving data from DGP via storage (default: -dgpevm)"));
+    strUsage += HelpMessageOpt("-dgpfvm", _("Receiving data from DGP via a contract call (default: -dgpevm)"));
+
 #ifdef USE_UPNP
 #if USE_UPNP
     strUsage += HelpMessageOpt("-upnp", _("Use UPnP to map the listening port (default: 1 when listening and no -proxy)"));
@@ -547,6 +558,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-maxsigcachesize=<n>", strprintf("Limit size of signature cache to <n> MiB (default: %u)", DEFAULT_MAX_SIG_CACHE_SIZE));
         strUsage += HelpMessageOpt("-maxtipage=<n>", strprintf("Maximum tip age in seconds to consider node in initial block download (default: %u)", DEFAULT_MAX_TIP_AGE));
     }
+    strUsage += HelpMessageOpt("-minmempoolgaslimit=<limit>", strprintf("The minimum transaction gas limit we are willing to accept into the mempool (default: %s)",MEMPOOL_MIN_GAS_LIMIT));
     strUsage += HelpMessageOpt("-minrelaytxfee=<amt>", strprintf(_("Fees (in %s/kB) smaller than this are considered zero fee for relaying, mining and transaction creation (default: %s)"),
         CURRENCY_UNIT, FormatMoney(DEFAULT_MIN_RELAY_TX_FEE)));
     strUsage += HelpMessageOpt("-maxtxfee=<amt>", strprintf(_("Maximum total fees (in %s) to use in a single wallet transaction or raw transaction; setting this too low may abort large transactions (default: %s)"),
@@ -576,6 +588,10 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-blockmaxsize=<n>", strprintf(_("Set maximum block size in bytes (default: %d)"), DEFAULT_BLOCK_MAX_SIZE));
     strUsage += HelpMessageOpt("-blockprioritysize=<n>", strprintf(_("Set maximum size of high-priority/low-fee transactions in bytes (default: %d)"), DEFAULT_BLOCK_PRIORITY_SIZE));
     strUsage += HelpMessageOpt("-blockmintxfee=<amt>", strprintf(_("Set lowest fee rate (in %s/kB) for transactions to be included in block creation. (default: %s)"), CURRENCY_UNIT, FormatMoney(DEFAULT_BLOCK_MIN_TX_FEE)));
+    strUsage += HelpMessageOpt("-min-tx-gas-price=<amt>", _("Any contract execution with a gas price below this will not be included in a block (defaults to the value specified by the DGP)"));
+    strUsage += HelpMessageOpt("-max-tx-gas-limit=<n>", _("Any contract execution with a gas limit over this amount will not be included in a block (defaults to soft block gas limit)"));
+    strUsage += HelpMessageOpt("-soft-block-gas-limit=<n>", _("After this amount of gas is surpassed in a block, no more contract executions will be added to the block (defaults to consensus-critical maximum block gas limit)"));
+
     if (showDebug)
         strUsage += HelpMessageOpt("-blockversion=<n>", "Override block version to test forking scenarios");
 
@@ -1473,6 +1489,9 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
     if (fPrintToDebugLog)
         OpenDebugLog();
 
+    dev::g_logPost = [&](std::string const& s, char const* c){ LogPrintStr(s + '\n', true); };
+    dev::g_logPost(std::string("\n\n\n\n\n\n\n\n\n\n"), NULL);
+
     if (!fLogTimestamps)
         LogPrintf("Startup time: %s\n", DateTimeStrFormat("%Y-%m-%d %H:%M:%S", GetTime()));
     LogPrintf("Default data directory %s\n", GetDefaultDataDir().string());
@@ -1744,6 +1763,8 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 llmq::DestroyLLMQSystem();
                 delete pblocktree;
                 delete evoDb;
+                delete pstorageresult;
+
 
                 MTPState::GetMTPState()->SetMTPStartBlock(chainparams.GetConsensus().nMTPStartBlock);
 
@@ -1768,6 +1789,9 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 llmq::InitLLMQSystem(*evoDb, &scheduler, false, fReindex || fReindexChainState);
 
                 if (fReindex) {
+                    boost::filesystem::path stateDir = GetDataDir() / "stateFiro";
+                    StorageResults storageRes(stateDir.string());
+                    storageRes.wipeResults();
                     pblocktree->WriteReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (fPruneMode)
@@ -1811,6 +1835,41 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                     return InitError(_("Incorrect or no genesis block found. Wrong datadir for network?"));
                 }
 
+                if((IsArgSet("-dgpstorage") && IsArgSet("-dgpfvm")) || (!IsArgSet("-dgpstorage") && IsArgSet("-dgpfvm")) ||
+                  (!IsArgSet("-dgpstorage") && !IsArgSet("-dgpfvm"))){
+                    fGettingValuesDGP = true;
+                } else {
+                    fGettingValuesDGP = false;
+                }
+
+                dev::eth::Ethash::init();
+
+                boost::filesystem::path fvmStateDir = GetDataDir() / "stateFVM";
+
+                bool fStatus = boost::filesystem::exists(fvmStateDir);
+                const std::string dirFvm(fvmStateDir.string());
+                const dev::h256 hashDB(dev::sha3(dev::rlp("")));
+                dev::eth::BaseState existsFvmstate = fStatus ? dev::eth::BaseState::PreExisting : dev::eth::BaseState::Empty;
+                globalState = std::unique_ptr<FvmState>(new FvmState(dev::u256(0), FvmState::openDB(dirFvm, hashDB, dev::WithExisting::Trust), dirFvm, existsFvmstate));
+                dev::eth::ChainParams cp((dev::eth::genesisInfo(dev::eth::Network::FvmMainNetwork)));
+                globalSealEngine = std::unique_ptr<dev::eth::SealEngineFace>(cp.createSealEngine());
+
+                pstorageresult = new StorageResults(fvmStateDir.string());
+
+                if(chainActive.Tip() != NULL){
+                    globalState->setRoot(uintToh256(chainActive.Tip()->reserved[0]));
+                    globalState->setRootUTXO(uintToh256(chainActive.Tip()->reserved[1]));
+                } else {
+                    globalState->setRoot(dev::sha3(dev::rlp("")));
+                    globalState->setRootUTXO(uintToh256(chainparams.GenesisBlock().reserved[1]));
+                    globalState->populateFrom(cp.genesisState);
+                }
+                globalState->db().commit();
+                globalState->dbUtxo().commit();
+
+                fRecordLogOpcodes = IsArgSet("-record-log-opcodes");
+                fIsVMlogFile = boost::filesystem::exists(GetDataDir() / "vmExecLogs.json");
+
                 // Initialize the block index (no-op if non-empty database was already loaded)
                 if (!InitBlockIndex(chainparams)) {
                     strLoadError = _("Error initializing block database");
@@ -1822,6 +1881,21 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                     strLoadError = _("You need to rebuild the database using -reindex-chainstate to change -txindex");
                     break;
                 }
+
+                // Check for changed -logevents state
+                if (fLogEvents != GetBoolArg("-logevents", DEFAULT_LOGEVENTS) && !fLogEvents) {
+                    strLoadError = _("You need to rebuild the database using -reindex-chainstate to enable -logevents");
+                    break;
+                }
+
+                if (!GetBoolArg("-logevents", DEFAULT_LOGEVENTS))
+                {
+                    pstorageresult->wipeResults();
+                    pblocktree->WipeHeightIndex();
+                    fLogEvents = false;
+                    pblocktree->WriteFlag("logevents", fLogEvents);
+                }
+
 
                 // Check for changed -prune state.  What we are concerned about is a user who has pruned blocks
                 // in the past, but is now trying to run unpruned.

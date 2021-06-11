@@ -207,6 +207,42 @@ testScripts = [
 #    'llmq-is-cl-conflicts.py',
 #    'llmq-is-retroactive.py'
 
+    # FVM
+    'fvm-assign-mpos-fees-to-gas-refund.py',
+    'fvm-block-header.py',
+    'fvm-call-empty-contract.py',
+    'fvm-callcontract.py',
+    'fvm-combined-outputs-exceed-gas-limit.py',
+    'fvm-condensing-txs.py',
+    'fvm-create-eth-op-code.py',
+    'fvm-createcontract.py',
+    'fvm-dgp-block-size-restart.py',
+    'fvm-dgp-block-size-sync.py',
+    'fvm-dgp-gas-price-lingering-mempool-tx.py',
+    'fvm-dgp.py',
+    'fvm-evm-globals.py',
+    'fvm-gas-limit-overflow.py',
+    'fvm-gas-limit.py',
+    'fvm-globals-state-changer.py',
+    'fvm-identical-refunds.py',
+    'fvm-ignore-mpos-participant-reward.py',
+    'fvm-immature-coinstake-spend.py',
+    'fvm-many-value-refunds-from-same-tx.py',
+    'fvm-no-exec-call-disabled.py',
+    'fvm-null-sender.py',
+    'fvm-opfvmcall.py',
+    'fvm-opfvmcreate.py',
+    'fvm-pos-conflicting-txs.py',
+    'fvm-pos-segwit.py',
+    'fvm-pos.py',
+    'fvm-searchlog-restart-node.py',
+    'fvm-searchlog.py',
+    'fvm-sendtocontract.py',
+    'fvm-soft-block-gas-limits.py',
+    'fvm-spend-op-fvmcall.py',
+    'fvm-state-root.py',
+    'fvm-transaction-prioritization.py',
+    'fvm-waitforlogs.py'
     # Unstable tests
     #, 'dip4-coinbasemerkleroots.py'
 
