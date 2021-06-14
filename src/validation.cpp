@@ -5510,6 +5510,9 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
     // begin tx and let it rollback
     auto dbTx = evoDb->BeginTransaction();
 
+    dev::h256 oldHashStateRoot(globalState->rootHash()); 
+    dev::h256 oldHashUTXORoot(globalState->rootHashUTXO()); 
+
     // NOTE: CheckBlockHeader is called by CheckBlock
     if (!ContextualCheckBlockHeader(block, state, chainparams.GetConsensus(), pindexPrev, GetAdjustedTime()))
         return error("%s: Consensus::ContextualCheckBlockHeader: %s", __func__, FormatStateMessage(state));
@@ -5517,20 +5520,12 @@ bool TestBlockValidity(CValidationState& state, const CChainParams& chainparams,
         return error("%s: Consensus::CheckBlock: %s", __func__, FormatStateMessage(state));
     if (!ContextualCheckBlock(block, state, chainparams.GetConsensus(), pindexPrev))
         return error("%s: Consensus::ContextualCheckBlock: %s", __func__, FormatStateMessage(state));
-    if (!ConnectBlock(block, state, &indexDummy, viewNew, chainparams, true))
-        return false;
-
-    dev::h256 oldHashStateRoot(globalState->rootHash()); 
-    dev::h256 oldHashUTXORoot(globalState->rootHashUTXO()); 
-    
     if (!ConnectBlock(block, state, &indexDummy, viewNew, chainparams, true)){
-        
         globalState->setRoot(oldHashStateRoot); 
         globalState->setRootUTXO(oldHashUTXORoot); 
         pstorageresult->clearCacheResult();
         return false;
     }
-
     assert(state.IsValid());
 
     return true;
