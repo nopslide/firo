@@ -715,8 +715,8 @@ UniValue createcontract(const JSONRPCRequest& request){
     CRIPEMD160().Write(SHA256TxVout.data(), SHA256TxVout.size()).Finalize(contractAddress.data());
     result.push_back(Pair("address", HexStr(contractAddress)));
     }else{
-    string strHex = EncodeHexTx(*wtx.tx, RPCSerializationFlags());
-    result.push_back(Pair("raw transaction", strHex));
+        string strHex = EncodeHexTx(*wtx.tx, RPCSerializationFlags());
+        result.push_back(Pair("raw transaction", strHex));
     }
     return result;
 }

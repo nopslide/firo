@@ -1067,8 +1067,16 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
 
             if (!tx.IsLelantusJoinSplit()) {
                 nFees = nValueIn - nValueOut;
-            } 
-            else if(tx.HasOpFVMCreateOrCall()){
+            } else {
+                try {
+                    nFees = lelantus::ParseLelantusJoinSplit(tx.vin[0])->getFee();
+                }
+                catch (CBadTxIn&) {
+                    return state.DoS(0, false, REJECT_INVALID, "unable to parse joinsplit");
+                }
+            }
+
+            if(tx.HasOpFVMCreateOrCall()){
                 if(!CheckSenderScript(view, tx)){
                     return state.DoS(1, false, REJECT_INVALID, "bad-txns-invalid-sender-script");
                 }
@@ -1147,14 +1155,7 @@ bool AcceptToMemoryPoolWorker(CTxMemPool& pool, CValidationState& state, const C
                         strprintf("%d > %d", nFees, nAbsurdFee));
 
             }
-            else {
-                try {
-                    nFees = lelantus::ParseLelantusJoinSplit(tx.vin[0])->getFee();
-                }
-                catch (CBadTxIn&) {
-                    return state.DoS(0, false, REJECT_INVALID, "unable to parse joinsplit");
-                }
-            }
+
             // nModifiedFees includes any fee deltas from PrioritiseTransaction
             CAmount nModifiedFees = nFees;
             double nPriorityDummy = 0;

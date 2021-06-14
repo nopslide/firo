@@ -1269,6 +1269,10 @@ void BlockAssembler::addPriorityTxs(uint64_t minGasPrice)
     for (CTxMemPool::indexed_transaction_set::iterator mi = mempool.mapTx.begin();
          mi != mempool.mapTx.end(); ++mi)
     {
+        // Skip transactions depending on privacy tx outputs in the mempool
+        if (txBlackList.count(mi))
+            continue;
+
         double dPriority = mi->GetPriority(nHeight);
         CAmount dummy;
         mempool.ApplyDeltas(mi->GetTx().GetHash(), dPriority, dummy);
@@ -1320,7 +1324,9 @@ void BlockAssembler::addPriorityTxs(uint64_t minGasPrice)
             // If now that this txs is added we've surpassed our desired priority size
             // or have dropped below the AllowFreeThreshold, then we're done adding priority txs
             if (nBlockSize >= nBlockPrioritySize || !AllowFree(actualPriority)) {
-                break;
+                // Make exception for zerocoin->sigma remints
+                if (!iter->GetTx().IsZerocoinRemint())
+                    break;
             }
             if(wasAdded) {
                 // This tx was successfully added, so
