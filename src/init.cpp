@@ -1852,6 +1852,8 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 dev::eth::BaseState existsFvmstate = fStatus ? dev::eth::BaseState::PreExisting : dev::eth::BaseState::Empty;
                 globalState = std::unique_ptr<FvmState>(new FvmState(dev::u256(0), FvmState::openDB(dirFvm, hashDB, dev::WithExisting::Trust), dirFvm, existsFvmstate));
                 dev::eth::ChainParams cp((dev::eth::genesisInfo(dev::eth::Network::FvmMainNetwork)));
+                std::cout << "State root " << cp.calculateStateRoot(true) << std::endl;
+                LogPrintf("State root %s\n", cp.calculateStateRoot(true));
                 globalSealEngine = std::unique_ptr<dev::eth::SealEngineFace>(cp.createSealEngine());
 
                 pstorageresult = new StorageResults(fvmStateDir.string());

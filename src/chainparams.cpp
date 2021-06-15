@@ -43,6 +43,7 @@ static CBlock CreateGenesisBlock(const char *pszTimestamp, const CScript &genesi
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
     genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
+    genesis.reserved[0] = uint256(h256Touint(dev::h256("e965ffd002cd6ad0e2dc402b8044de833e06b23127ea8c3d80aec91410771495"))); //hashStateRoot
     genesis.reserved[1] = uint256(h256Touint(dev::sha3(dev::rlp("")))); //hashUTXORoot
     return genesis;
 }

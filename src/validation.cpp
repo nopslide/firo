@@ -3513,10 +3513,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
             }
         }
         if(checkBlock.reserved[0] != block.reserved[0]){
-            LogPrintf("Actual block data does not match hashUTXORoot expected by AAL block\n");
+            LogPrintf("Actual block data does not match hashStateRoot expected by AAL block\n");
         }
         if(checkBlock.reserved[1] != block.reserved[1]){
-            LogPrintf("Actual block data does not match hashStateRoot expected by AAL block\n");
+            LogPrintf("Actual block data does not match hashUTXORoot expected by AAL block\n");
         }
 
         return state.DoS(100, error("ConnectBlock(): Incorrect AAL transactions or hashes (hashStateRoot, hashUTXORoot)"),
@@ -3581,15 +3581,15 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     if (fJustCheck) {
         // roll back spork set if needed
         pindex->activeDisablingSporks = sporkSetBackup;
-
-        dev::h256 prevHashStateRoot(dev::sha3(dev::rlp("")));
-        dev::h256 prevHashUTXORoot(dev::sha3(dev::rlp("")));
+        
         if(pindex->pprev->reserved[0] != uint256() && pindex->pprev->reserved[1] != uint256()){
+            dev::h256 prevHashStateRoot(dev::sha3(dev::rlp("")));
+            dev::h256 prevHashUTXORoot(dev::sha3(dev::rlp("")));
             prevHashStateRoot = uintToh256(pindex->pprev->reserved[0]);
-            prevHashUTXORoot = uintToh256(pindex->pprev->reserved[1]);
+            prevHashUTXORoot = uintToh256(pindex->pprev->reserved[1]);           
+            globalState->setRoot(prevHashStateRoot);
+            globalState->setRootUTXO(prevHashUTXORoot);
         }
-        globalState->setRoot(prevHashStateRoot);
-        globalState->setRootUTXO(prevHashUTXORoot);
 
         return true;
     }
