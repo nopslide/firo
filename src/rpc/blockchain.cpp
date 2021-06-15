@@ -106,8 +106,8 @@ UniValue blockheaderToJSON(const CBlockIndex* blockindex)
     result.push_back(Pair("bits", strprintf("%08x", blockindex->nBits)));
     result.push_back(Pair("difficulty", GetDifficulty(blockindex)));
     result.push_back(Pair("chainwork", blockindex->nChainWork.GetHex()));
-    result.push_back(Pair("hashStateRoot", blockindex->reserved[0].GetHex())); 
-    result.push_back(Pair("hashUTXORoot", blockindex->reserved[1].GetHex())); 
+    result.push_back(Pair("hashStateRoot", blockindex->hashStateRoot.GetHex())); 
+    result.push_back(Pair("hashUTXORoot", blockindex->hashUTXORoot.GetHex())); 
 
 
     if (blockindex->pprev)
@@ -135,8 +135,8 @@ UniValue blockToJSON(const CBlock& block, const CBlockIndex* blockindex, bool tx
     result.push_back(Pair("version", block.nVersion));
     result.push_back(Pair("versionHex", strprintf("%08x", block.nVersion)));
     result.push_back(Pair("merkleroot", block.hashMerkleRoot.GetHex()));
-    result.push_back(Pair("hashStateRoot", blockindex->reserved[0].GetHex())); 
-    result.push_back(Pair("hashUTXORoot", blockindex->reserved[1].GetHex())); 
+    result.push_back(Pair("hashStateRoot", blockindex->hashStateRoot.GetHex())); 
+    result.push_back(Pair("hashUTXORoot", blockindex->hashUTXORoot.GetHex())); 
     UniValue txs(UniValue::VARR);
     for(const auto& tx : block.vtx)
     {
@@ -831,7 +831,7 @@ UniValue getstorage(const JSONRPCRequest& request)
                 throw JSONRPCError(RPC_INVALID_PARAMS, "Incorrect block number");
 
             if(blockNum != -1)
-                ts.SetRoot(uintToh256(chainActive[blockNum]->reserved[0]), uintToh256(chainActive[blockNum]->reserved[1]));
+                ts.SetRoot(uintToh256(chainActive[blockNum]->hashStateRoot), uintToh256(chainActive[blockNum]->hashUTXORoot));
                 
         } else {
             throw JSONRPCError(RPC_INVALID_PARAMS, "Incorrect block number");

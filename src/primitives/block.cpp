@@ -109,8 +109,8 @@ std::string CBlock::ToString() const {
         hashPrevBlock.ToString(),
         hashMerkleRoot.ToString(),
         nTime, nBits, nNonce,
-        reserved[0].ToString(), 
-        reserved[1].ToString(), 
+        hashStateRoot.ToString(), 
+        hashUTXORoot.ToString(), 
         vtx.size());
     }else{
         s << strprintf("CBlock(hash=%s, ver=0x%08x, hashPrevBlock=%s, hashMerkleRoot=%s, nTime=%u, nBits=%08x, nNonce=%u, vtx=%u)\n",

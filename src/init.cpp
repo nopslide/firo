@@ -1859,11 +1859,11 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 pstorageresult = new StorageResults(fvmStateDir.string());
 
                 if(chainActive.Tip() != NULL){
-                    globalState->setRoot(uintToh256(chainActive.Tip()->reserved[0]));
-                    globalState->setRootUTXO(uintToh256(chainActive.Tip()->reserved[1]));
+                    globalState->setRoot(uintToh256(chainActive.Tip()->hashStateRoot));
+                    globalState->setRootUTXO(uintToh256(chainActive.Tip()->hashUTXORoot));
                 } else {
                     globalState->setRoot(dev::sha3(dev::rlp("")));
-                    globalState->setRootUTXO(uintToh256(chainparams.GenesisBlock().reserved[1]));
+                    globalState->setRootUTXO(uintToh256(chainparams.GenesisBlock().hashUTXORoot));
                     globalState->populateFrom(cp.genesisState);
                 }
                 globalState->db().commit();

@@ -2556,8 +2556,8 @@ static DisconnectResult DisconnectBlock(const CBlock& block, CValidationState& s
         fClean = true;
     }
 
-    globalState->setRoot(uintToh256(pindex->pprev->reserved[0])); 
-    globalState->setRootUTXO(uintToh256(pindex->pprev->reserved[1])); 
+    globalState->setRoot(uintToh256(pindex->pprev->hashStateRoot)); 
+    globalState->setRootUTXO(uintToh256(pindex->pprev->hashUTXORoot)); 
 
     if(pfClean == NULL && fLogEvents){
         pstorageresult->deleteResults(block.vtx);
@@ -3465,8 +3465,8 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
     LogPrint("bench", "    - Verify %u txins: %.2fms (%.3fms/txin) [%.2fs]\n", nInputs - 1, 0.001 * (nTime4 - nTime2), nInputs <= 1 ? 0 : 0.001 * (nTime4 - nTime2) / (nInputs-1), nTimeVerify * 0.000001);
 
     checkBlock.hashMerkleRoot = BlockMerkleRoot(checkBlock);
-    checkBlock.reserved[0] = h256Touint(globalState->rootHash());
-    checkBlock.reserved[1] = h256Touint(globalState->rootHashUTXO());
+    checkBlock.hashStateRoot = h256Touint(globalState->rootHash());
+    checkBlock.hashUTXORoot = h256Touint(globalState->rootHashUTXO());
 
     //If this error happens, it probably means that something with AAL created transactions didn't match up to what is expected
     if((checkBlock.GetHash() != block.GetHash()) && !fJustCheck)
@@ -3512,10 +3512,10 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 }
             }
         }
-        if(checkBlock.reserved[0] != block.reserved[0]){
+        if(checkBlock.hashStateRoot != block.hashStateRoot){
             LogPrintf("Actual block data does not match hashStateRoot expected by AAL block\n");
         }
-        if(checkBlock.reserved[1] != block.reserved[1]){
+        if(checkBlock.hashUTXORoot != block.hashUTXORoot){
             LogPrintf("Actual block data does not match hashUTXORoot expected by AAL block\n");
         }
 
@@ -3582,11 +3582,11 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
         // roll back spork set if needed
         pindex->activeDisablingSporks = sporkSetBackup;
         
-        if(pindex->pprev->reserved[0] != uint256() && pindex->pprev->reserved[1] != uint256()){
+        if(pindex->pprev->hashStateRoot != uint256() && pindex->pprev->hashUTXORoot != uint256()){
             dev::h256 prevHashStateRoot(dev::sha3(dev::rlp("")));
             dev::h256 prevHashUTXORoot(dev::sha3(dev::rlp("")));
-            prevHashStateRoot = uintToh256(pindex->pprev->reserved[0]);
-            prevHashUTXORoot = uintToh256(pindex->pprev->reserved[1]);           
+            prevHashStateRoot = uintToh256(pindex->pprev->hashStateRoot);
+            prevHashUTXORoot = uintToh256(pindex->pprev->hashUTXORoot);           
             globalState->setRoot(prevHashStateRoot);
             globalState->setRootUTXO(prevHashUTXORoot);
         }

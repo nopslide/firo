@@ -109,7 +109,8 @@ public:
     uint256 mtpHashValue;
 
     // Reserved fields
-    uint256 reserved[2];
+    uint256 hashStateRoot;
+    uint256 hashUTXORoot;
 
     // Store this only when absolutely needed for verification
     std::shared_ptr<CMTPHashData> mtpHashData;
@@ -142,8 +143,8 @@ public:
         if (IsMTP()) {
             READWRITE(nVersionMTP);
             READWRITE(mtpHashValue);
-            READWRITE(reserved[0]);
-            READWRITE(reserved[1]);
+            READWRITE(hashStateRoot);
+            READWRITE(hashUTXORoot);
             if (ser_action.ForRead()) {
                 mtpHashData = make_shared<CMTPHashData>();
                 READWRITE(*mtpHashData);
@@ -166,8 +167,8 @@ public:
         if (IsMTP()) {
             READWRITE(nVersionMTP);
             READWRITE(mtpHashValue);
-            READWRITE(reserved[0]);
-            READWRITE(reserved[1]);
+            READWRITE(hashStateRoot);
+            READWRITE(hashUTXORoot);
         }
     }
 
@@ -184,8 +185,8 @@ public:
         // Firo - MTP
         mtpHashData.reset();
         mtpHashValue.SetNull();
-        reserved[0].SetNull();
-        reserved[1].SetNull();
+        hashStateRoot.SetNull();
+        hashUTXORoot.SetNull();
     }
 
     int GetChainID() const
@@ -276,8 +277,8 @@ public:
         if (block.IsMTP()) {
             block.nVersionMTP = nVersionMTP;
             block.mtpHashData = mtpHashData;
-            block.reserved[0] = reserved[0];
-            block.reserved[1] = reserved[1];
+            block.hashStateRoot = hashStateRoot;
+            block.hashUTXORoot = hashUTXORoot;
         }
         return block;
     }

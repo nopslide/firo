@@ -326,8 +326,8 @@ std::unique_ptr<CBlockTemplate> BlockAssembler::CreateNewBlock(const CScript& sc
     addPackageTxs(minGasPrice);
     uint256 hashStateRootTmp(uint256(h256Touint(dev::h256(globalState->rootHash()))));
     uint256 hashUTXORootTmp(uint256(h256Touint(dev::h256(globalState->rootHashUTXO()))));
-    pblock->reserved[0] = hashStateRootTmp;
-    pblock->reserved[1] = hashUTXORootTmp;
+    pblock->hashStateRoot = hashStateRootTmp;
+    pblock->hashUTXORoot = hashUTXORootTmp;
     globalState->setRoot(oldHashStateRoot);
     globalState->setRootUTXO(oldHashUTXORoot);
 

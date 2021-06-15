@@ -56,7 +56,7 @@ extern "C" {
     uint8_t  node_offset[6];// 14
     uint8_t  node_depth;    // 15
     uint8_t  inner_length;  // 16
-    // uint8_t  reserved[0];
+    // uint8_t  hashStateRoot;
     uint8_t  salt[BLAKE2S_SALTBYTES]; // 24
     uint8_t  personal[BLAKE2S_PERSONALBYTES];  // 32
   } blake2s_param;

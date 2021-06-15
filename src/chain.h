@@ -219,7 +219,8 @@ public:
     int32_t nVersionMTP = 0x1000;
     uint256 mtpHashValue;
     // Reserved fields
-    uint256 reserved[2];
+    uint256 hashStateRoot;
+    uint256 hashUTXORoot;
 
     //! (memory only) Sequential id assigned to distinguish order in which blocks are received.
     int32_t nSequenceId;
@@ -280,7 +281,7 @@ public:
         nNonce         = 0;
 
         nVersionMTP = 0;
-        mtpHashValue = reserved[0] = reserved[1] = uint256();
+        mtpHashValue = hashStateRoot = hashUTXORoot = uint256();
 
         sigmaMintedPubCoins.clear();
         lelantusMintedPubCoins.clear();
@@ -308,8 +309,8 @@ public:
         if (block.IsMTP()) {
             nVersionMTP = block.nVersionMTP;
             mtpHashValue = block.mtpHashValue;
-            reserved[0] = block.reserved[0];
-            reserved[1] = block.reserved[1];
+            hashStateRoot = block.hashStateRoot;
+            hashUTXORoot = block.hashUTXORoot;
         }
     }
 
@@ -346,8 +347,8 @@ public:
         if(block.IsMTP()){
 			block.nVersionMTP = nVersionMTP;
             block.mtpHashValue = mtpHashValue;
-            block.reserved[0] = reserved[0];
-            block.reserved[1] = reserved[1];
+            block.hashStateRoot = hashStateRoot;
+            block.hashUTXORoot = hashUTXORoot;
 		}
         return block;
     }
@@ -481,8 +482,8 @@ public:
         if (nTime > ZC_GENESIS_BLOCK_TIME && nTime >= params.nMTPSwitchTime) {
             READWRITE(nVersionMTP);
             READWRITE(mtpHashValue);
-            READWRITE(reserved[0]);
-            READWRITE(reserved[1]);
+            READWRITE(hashStateRoot);
+            READWRITE(hashUTXORoot);
         }
 
         if (!(s.GetType() & SER_GETHASH) && nVersion >= ZC_ADVANCED_INDEX_VERSION) {
@@ -535,8 +536,8 @@ public:
         if (block.IsMTP()) {
             block.nVersionMTP = nVersionMTP;
             block.mtpHashValue = mtpHashValue;
-            block.reserved[0] = reserved[0];
-            block.reserved[1] = reserved[1];
+            block.hashStateRoot = hashStateRoot;
+            block.hashUTXORoot = hashUTXORoot;
         }
 
         return block.GetHash();
