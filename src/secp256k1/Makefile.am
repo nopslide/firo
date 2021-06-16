@@ -9,6 +9,7 @@ JNI_LIB =
 endif
 include_HEADERS =
 include_HEADERS += include/secp256k1.h
+include_HEADERS += include/secp256k1_sha256.h
 include_HEADERS += include/GroupElement.h
 include_HEADERS += include/Scalar.h
 include_HEADERS += include/MultiExponent.h
@@ -50,7 +51,6 @@ noinst_HEADERS += src/scratch.h
 noinst_HEADERS += src/scratch_impl.h
 noinst_HEADERS += src/testrand.h
 noinst_HEADERS += src/testrand_impl.h
-noinst_HEADERS += src/hash.h
 noinst_HEADERS += src/hash_impl.h
 noinst_HEADERS += src/field.h
 noinst_HEADERS += src/field_impl.h

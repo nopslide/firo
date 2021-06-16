@@ -277,5 +277,5 @@ template <typename Callable> void TraceThread(const char* name,  Callable func)
 
 std::string CopyrightHolders(const std::string& strPrefix);
 bool CheckHex(const std::string& str);
-
+void ReplaceInt(const int64_t& number, const std::string& key, std::string& str);
 #endif // BITCOIN_UTIL_H

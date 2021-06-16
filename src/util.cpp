@@ -20,6 +20,8 @@
 #include "utiltime.h"
 #include "warnings.h"
 #include <stdarg.h>
+#include <regex>
+#include <iomanip>
 
 #if (defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__DragonFly__))
 #include <pthread.h>
@@ -1065,4 +1067,28 @@ bool CheckHex(const std::string& str) {
         data=2;
     }
     return str.size() > data && str.find_first_not_of("0123456789abcdefABCDEF", data) == std::string::npos;
+}
+
+std::string toHexString(int64_t intValue) {
+
+    std::string hexStr;
+
+    // Integer value to hex string
+    std::stringstream sstream;
+    sstream << "0x" << std::setfill ('0') << std::setw(2) << std::hex << (int64_t)intValue;
+
+    hexStr= sstream.str();
+    sstream.clear();
+
+    return hexStr;
+}
+
+void ReplaceInt(const int64_t& number, const std::string& key, std::string& str)
+{
+    // Convert the number into hex string
+    std::string num_hex = toHexString(number);
+
+    // Search for key in str and replace it with the hex string
+    std::string str_replaced = std::regex_replace(str, std::regex(key), num_hex);
+    str = str_replaced;
 }

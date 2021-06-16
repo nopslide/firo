@@ -182,6 +182,7 @@ UniValue executionResultToJSON(const dev::eth::ExecutionResult& exRes)
     result.push_back(Pair("gasRefunded", CAmount(exRes.gasRefunded)));
     result.push_back(Pair("depositSize", static_cast<int32_t>(exRes.depositSize)));
     result.push_back(Pair("gasForDeposit", CAmount(exRes.gasForDeposit)));
+    result.push_back(Pair("exceptedMessage", exceptedMessage(exRes.excepted, exRes.output)));
     return result;
 }
 
@@ -189,7 +190,7 @@ UniValue transactionReceiptToJSON(const dev::eth::TransactionReceipt& txRec)
 {
     UniValue result(UniValue::VOBJ);
     result.push_back(Pair("stateRoot", txRec.stateRoot().hex()));
-    result.push_back(Pair("gasUsed", CAmount(txRec.gasUsed())));
+    result.push_back(Pair("gasUsed", CAmount(txRec.cumulativeGasUsed())));
     result.push_back(Pair("bloom", txRec.bloom().hex()));
     UniValue logEntries(UniValue::VARR);
     dev::eth::LogEntries logs = txRec.log();
@@ -784,7 +785,7 @@ UniValue getaccountinfo(const JSONRPCRequest& request)
     for (auto j: storage)
     {
         UniValue e(UniValue::VOBJ);
-        e.push_back(Pair(dev::toHex(j.second.first), dev::toHex(j.second.second)));
+        e.push_back(Pair(dev::toHex(dev::h256(j.second.first)), dev::toHex(dev::h256(j.second.second))));
         storageUV.push_back(Pair(j.first.hex(), e));
     }
         
@@ -1089,6 +1090,7 @@ void assignJSON(UniValue& entry, const TransactionReceiptInfo& resExec) {
     std::stringstream ss;
     ss << resExec.excepted;
     entry.push_back(Pair("excepted",ss.str()));
+    entry.push_back(Pair("exceptedMessage", resExec.exceptedMessage));
 }
 
 void assignJSON(UniValue& logEntry, const dev::eth::LogEntry& log,

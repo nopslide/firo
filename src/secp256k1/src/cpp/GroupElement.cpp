@@ -1,11 +1,11 @@
 #include "include/GroupElement.h"
 #include "include/secp256k1.h"
+#include "include/secp256k1_sha256.h"
 
 #include "../field.h"
 #include "../field_impl.h"
 #include "../group.h"
 #include "../group_impl.h"
-#include "../hash.h"
 #include "../hash_impl.h"
 #include "../scalar.h"
 #include "../scalar_impl.h"

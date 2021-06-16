@@ -57,6 +57,7 @@
 
 #include "sigma/coinspend.h"
 #include "warnings.h"
+#include <libethcore/ABI.h>
 
 #ifdef ENABLE_ELYSIUM
 #include "elysium/elysium.h"
@@ -2815,6 +2816,32 @@ void writeVMlog(const std::vector<ResultExecute>& res, const CTransaction& tx, c
     fIsVMlogFile = true;
 }
 
+LastHashes::LastHashes()
+{}
+
+void LastHashes::set(const CBlockIndex *tip)
+{
+    clear();
+
+    m_lastHashes.resize(256);
+    for(int i=0;i<256;i++){
+        if(!tip)
+            break;
+        m_lastHashes[i]= uintToh256(*tip->phashBlock);
+        tip = tip->pprev;
+    }
+}
+
+dev::h256s LastHashes::precedingHashes(const dev::h256 &) const
+{
+    return m_lastHashes;
+}
+
+void LastHashes::clear()
+{
+    m_lastHashes.clear();
+}
+
 bool ByteCodeExec::performByteCode(dev::eth::Permanence type){
     for(FvmTransaction& tx : txs){
         //validate VM version
@@ -2876,23 +2903,20 @@ bool ByteCodeExec::processingResults(ByteCodeExecResult& resultBCE){
 }
 
 dev::eth::EnvInfo ByteCodeExec::BuildEVMEnvironment(){
-    dev::eth::EnvInfo env;
-    CBlockIndex* tip = chainActive.Tip();
-    env.setNumber(dev::u256(tip->nHeight + 1));
-    env.setTimestamp(dev::u256(block.nTime));
-    env.setDifficulty(dev::u256(block.nBits));
+    CBlockIndex* tip = pindex;
+    dev::eth::BlockHeader header;
+    header.setNumber(tip->nHeight + 1);
+    header.setTimestamp(block.nTime);
+    header.setDifficulty(dev::u256(block.nBits));
+    header.setGasLimit(blockGasLimit);
 
-    dev::eth::LastHashes lh;
-    lh.resize(256);
-    for(int i=0;i<256;i++){
-        if(!tip)
-            break;
-        lh[i]= uintToh256(*tip->phashBlock);
-        tip = tip->pprev;
-    }
-    env.setLastHashes(std::move(lh));
-    env.setGasLimit(blockGasLimit);
-    env.setAuthor(EthAddrFromScript(block.vtx[0]->vout[0].scriptPubKey));
+    lastHashes.set(tip);
+    
+    header.setAuthor(EthAddrFromScript(block.vtx[0]->vout[0].scriptPubKey));
+
+    dev::u256 gasUsed;
+    dev::eth::EnvInfo env(header, lastHashes, gasUsed);
+
     return env;
 }
 
@@ -3408,7 +3432,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                     }
                     heightIndexes[key].second.push_back(tx.GetHash());
                     tri.push_back(TransactionReceiptInfo{block.GetHash(), uint32_t(pindex->nHeight), tx.GetHash(), uint32_t(i), resultConvertFvmTX.first[k].from(), resultConvertFvmTX.first[k].to(),
-                                countCumulativeGasUsed, uint64_t(resultExec[k].execRes.gasUsed), resultExec[k].execRes.newAddress, resultExec[k].txRec.log(), resultExec[k].execRes.excepted});
+                                countCumulativeGasUsed, uint64_t(resultExec[k].execRes.gasUsed), resultExec[k].execRes.newAddress, resultExec[k].txRec.log(), resultExec[k].execRes.excepted, exceptedMessage(resultExec[k].execRes.excepted, resultExec[k].execRes.output)});
                 }
 
                 pstorageresult->addResult(uintToh256(tx.GetHash()), tri);
@@ -6628,6 +6652,31 @@ double GuessVerificationProgress(const ChainTxData& data, CBlockIndex *pindex) {
 
     return pindex->nChainTx / fTxTotal;
 }
+
+std::string exceptedMessage(const dev::eth::TransactionException& excepted, const dev::bytes& output)
+{
+    std::string message;
+    try
+    {
+        // Process the revert message from the output
+        if(excepted == dev::eth::TransactionException::RevertInstruction)
+        {
+            // Get function: Error(string)
+            dev::bytesConstRef oRawData(&output);
+            dev::bytes errorFunc = oRawData.cropped(0, 4).toBytes();
+            if(dev::toHex(errorFunc) == "08c379a0")
+            {
+                dev::bytesConstRef oData = oRawData.cropped(4);
+                message = dev::eth::ABIDeserialiser<std::string>::deserialise(oData);
+            }
+        }
+    }
+    catch(...)
+    {}
+
+    return message;
+}
+
 
 class CMainCleanup
 {

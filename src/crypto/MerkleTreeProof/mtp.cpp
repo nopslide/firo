@@ -535,7 +535,7 @@ bool mtp_hash1(const char* input, uint32_t target, uint8_t hash_root_mtp[16],
         bool init_blocks = false;
         for (uint32_t j = 1; j <= L; ++j) {
             std::string s = "0x" + y[j - 1].GetHex();
-            boost::multiprecision::uint256_t t(s);
+            boost::multiprecision::uint256_t t(s); 
             uint32_t ij = numeric_cast<uint32_t>(t % M_COST);
             uint32_t except_index = numeric_cast<uint32_t>(M_COST / LANES);
             if (((ij % except_index) == 0) || ((ij % except_index) == 1)) {

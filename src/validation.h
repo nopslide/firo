@@ -40,6 +40,7 @@
 #include <fvm/fvmstate.h>
 #include <fvm/fvmDGP.h>
 #include <libethereum/ChainParams.h>
+#include <libethereum/LastBlockHashesFace.h>
 #include <libethashseal/Ethash.h>
 #include <libethashseal/GenesisInfo.h>
 #include <script/standard.h>
@@ -771,6 +772,8 @@ void EnforceContractVoutLimit(ByteCodeExecResult& bcer, ByteCodeExecResult& bcer
 
 void writeVMlog(const std::vector<ResultExecute>& res, const CTransaction& tx = CTransaction(), const CBlock& block = CBlock());
 
+std::string exceptedMessage(const dev::eth::TransactionException& excepted, const dev::bytes& output);
+
 struct EthTransactionParams{
     VersionVM version;
     dev::u256 gasLimit;
@@ -818,6 +821,18 @@ private:
 
 };
 
+class LastHashes: public dev::eth::LastBlockHashesFace
+{
+public:
+    explicit LastHashes();
+    void set(CBlockIndex const* tip);
+    dev::h256s precedingHashes(dev::h256 const&) const;
+    void clear();
+
+private:
+    dev::h256s m_lastHashes;
+};
+
 class ByteCodeExec {
 
 public:
@@ -844,6 +859,9 @@ private:
 
     const uint64_t blockGasLimit;
 
+    CBlockIndex* pindex;
+
+    LastHashes lastHashes;
 };
 
 

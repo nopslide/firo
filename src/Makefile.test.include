@@ -185,7 +185,8 @@ BITCOIN_TESTS = \
   test/fvmtests/condensingtransaction_tests.cpp \
   test/fvmtests/test_utils.cpp \
   test/fvmtests/test_utils.h \
-  test/fvmtests/dgp_tests.cpp
+  test/fvmtests/dgp_tests.cpp \
+  test/fvmtests/constantinoplefork_tests.cpp
 
 
 if ENABLE_WALLET
@@ -250,7 +251,7 @@ if ENABLE_WALLET
 test_test_bitcoin_LDADD += libbitcoin_server_a-netfulfilledman.o $(LIBBITCOIN_WALLET)
 endif
 
-test_test_bitcoin_LDADD += $(LIBBITCOIN_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS)
+test_test_bitcoin_LDADD += $(LIBBITCOIN_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(LIBFF) $(GMP_LIBS) $(GMPXX_LIBS)
 test_test_bitcoin_LDFLAGS = $(LDFLAGS_WRAP_EXCEPTIONS) $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
 
 if ENABLE_ZMQ
