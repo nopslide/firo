@@ -1,6 +1,6 @@
 #include "../include/MultiExponent.h"
-
 #include "../include/secp256k1.h"
+
 #include "../field.h"
 #include "../field_impl.h"
 #include "../group.h"

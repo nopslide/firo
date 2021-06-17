@@ -25,7 +25,7 @@
 #include <secp256k1.h>
 #include <secp256k1_ecdh.h>
 #include <secp256k1_recovery.h>
-#include <secp256k1_sha256.h>
+#include <secp256k1/src/hash_impl.h>
 #include <cryptopp/aes.h>
 #include <cryptopp/pwdbased.h>
 #include <cryptopp/sha.h>

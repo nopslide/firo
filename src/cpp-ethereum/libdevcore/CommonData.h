@@ -42,7 +42,6 @@ enum class WhenError
 	Throw = 1,
 };
 
-
 template <class Iterator>
 std::string toHex(Iterator _it, Iterator _end, std::string const& _prefix)
 {

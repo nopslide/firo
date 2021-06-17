@@ -422,6 +422,10 @@ public:
 
         // FVM
         consensus.nFixUTXOCacheHFHeight = 0;
+        consensus.QIP5Height = 0;
+        consensus.QIP6Height = 0;
+        consensus.QIP7Height = 0;
+        consensus.QIP9Height = 0;
     }
     virtual bool SkipUndoForBlock(int nHeight) const
     {
@@ -683,6 +687,10 @@ public:
 
         // FVM
         consensus.nFixUTXOCacheHFHeight = 0;
+        consensus.QIP5Height = 0;
+        consensus.QIP6Height = 0;
+        consensus.QIP7Height = 0;
+        consensus.QIP9Height = 0;
     }
 };
 
@@ -890,6 +898,10 @@ public:
 
         // FVM
         consensus.nFixUTXOCacheHFHeight = 0;
+        consensus.QIP5Height = 0;
+        consensus.QIP6Height = 0;
+        consensus.QIP7Height = 0;
+        consensus.QIP9Height = 0;
     }
 
     void UpdateBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)
@@ -900,12 +912,13 @@ public:
 };
 static CRegTestParams regTestParams;
 
-static CChainParams *pCurrentParams = 0;
+static std::unique_ptr<const CChainParams> globalChainParams;
 
 const CChainParams &Params() {
-    assert(pCurrentParams);
-    return *pCurrentParams;
+    assert(globalChainParams);
+    return *globalChainParams;
 }
+
 
 CChainParams& Params(const std::string& chain)
 {
@@ -922,7 +935,18 @@ CChainParams& Params(const std::string& chain)
 void SelectParams(const std::string& network)
 {
     SelectBaseParams(network);
-    pCurrentParams = &Params(network);
+    globalChainParams = CreateChainParams(network);
+}
+
+std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain)
+{
+    if (chain == CBaseChainParams::MAIN)
+        return std::unique_ptr<CChainParams>(new CMainParams());
+    else if (chain == CBaseChainParams::TESTNET)
+        return std::unique_ptr<CChainParams>(new CTestNetParams());
+    else if (chain == CBaseChainParams::REGTEST)
+        return std::unique_ptr<CChainParams>(new CRegTestParams());
+    throw std::runtime_error(strprintf("%s: Unknown chain %s.", __func__, chain));
 }
 
 void UpdateRegtestBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout)
@@ -930,3 +954,48 @@ void UpdateRegtestBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime,
     regTestParams.UpdateBIP9Parameters(d, nStartTime, nTimeout);
 }
 
+std::string CChainParams::EVMGenesisInfo(dev::eth::Network network) const
+{
+    std::string genesisInfo = dev::eth::genesisInfo(network);
+    ReplaceInt(consensus.QIP7Height, "QIP7_STARTING_BLOCK", genesisInfo);
+    ReplaceInt(consensus.QIP6Height, "QIP6_STARTING_BLOCK", genesisInfo);
+    return genesisInfo;
+}
+
+std::string CChainParams::EVMGenesisInfo(dev::eth::Network network, int nHeight) const
+{
+    std::string genesisInfo = dev::eth::genesisInfo(network);
+    ReplaceInt(nHeight, "QIP7_STARTING_BLOCK", genesisInfo);
+    ReplaceInt(nHeight, "QIP6_STARTING_BLOCK", genesisInfo);
+    return genesisInfo;
+}
+
+void CChainParams::UpdateOpSenderBlockHeight(int nHeight)
+{
+    consensus.QIP5Height = nHeight;
+}
+
+void UpdateOpSenderBlockHeight(int nHeight)
+{
+    const_cast<CChainParams*>(globalChainParams.get())->UpdateOpSenderBlockHeight(nHeight);
+}
+
+void CChainParams::UpdateBtcEcrecoverBlockHeight(int nHeight)
+{
+    consensus.QIP6Height = nHeight;
+}
+
+void UpdateBtcEcrecoverBlockHeight(int nHeight)
+{
+    const_cast<CChainParams*>(globalChainParams.get())->UpdateBtcEcrecoverBlockHeight(nHeight);
+}
+
+void CChainParams::UpdateConstantinopleBlockHeight(int nHeight)
+{
+    consensus.QIP7Height = nHeight;
+}
+
+void UpdateConstantinopleBlockHeight(int nHeight)
+{
+    const_cast<CChainParams*>(globalChainParams.get())->UpdateConstantinopleBlockHeight(nHeight);
+}

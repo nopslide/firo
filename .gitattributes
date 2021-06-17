@@ -1,3 +1,2 @@
 src/clientversion.cpp export-subst
-help filter=lfs diff=lfs merge=lfs -text
 src/cpp-ethereum/test/jsontests/BlockchainTests/bcExploitTest/SuicideIssue.json filter=lfs diff=lfs merge=lfs -text

@@ -1,7 +1,6 @@
 #include "include/Scalar.h"
 
 #include "include/secp256k1.h"
-#include "include/secp256k1_sha256.h"
 
 #if defined HAVE_CONFIG_H
 #include "libsecp256k1-config.h"
@@ -10,7 +9,7 @@
 #include "../scalar.h"
 #include "../scalar_impl.h"
 #include "../hash_impl.h"
-
+#include "../hash.h"
 
 #include <array>
 #include <sstream>

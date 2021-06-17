@@ -21,7 +21,6 @@
 #include "util.h"
 #include "utilstrencodings.h"
 #include "hash.h"
-#include "libdevcore/CommonData.h"
 #include "txdb.h"
 
 
@@ -868,7 +867,7 @@ UniValue getstorage(const JSONRPCRequest& request)
     for (const auto& j: storage)
     {
         UniValue e(UniValue::VOBJ);
-        e.push_back(Pair(dev::toHex(j.second.first), dev::toHex(j.second.second)));
+        e.push_back(Pair(dev::toHex(dev::h256(j.second.first)), dev::toHex(dev::h256(j.second.second)))); 
         result.push_back(Pair(j.first.hex(), e));
     }
     return result;

@@ -368,6 +368,7 @@ bool Executive::call(CallParameters const& _p, u256 const& _gasPrice, Address co
         }
     }
 
+
     if(!m_s.addressInUse(_p.receiveAddress))
         m_sealEngine.deleteAddresses.insert(_p.receiveAddress);
 

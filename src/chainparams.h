@@ -10,6 +10,7 @@
 #include "consensus/params.h"
 #include "primitives/block.h"
 #include "protocol.h"
+#include <libethashseal/GenesisInfo.h>
 
 #include <vector>
 
@@ -96,6 +97,12 @@ public:
     const ChainTxData& TxData() const { return chainTxData; }
     virtual bool SkipUndoForBlock(int /*nHeight*/) const { return false; }
     virtual bool ApplyUndoForTxout(int /*nHeight*/, uint256 const & /*txid*/, int /*n*/) const { return true; }
+    std::string EVMGenesisInfo(dev::eth::Network network) const;
+    std::string EVMGenesisInfo(dev::eth::Network network, int nHeight) const;
+    void UpdateOpSenderBlockHeight(int nHeight);
+    void UpdateBtcEcrecoverBlockHeight(int nHeight);
+    void UpdateConstantinopleBlockHeight(int nHeight);
+    void UpdateDifficultyChangeBlockHeight(int nHeight);
 protected:
     CChainParams() {}
 
@@ -124,6 +131,14 @@ protected:
 };
 
 /**
+ * Creates and returns a std::unique_ptr<CChainParams> of the chosen chain.
+ * @returns a CChainParams* of the chosen chain.
+ * @throws a std::runtime_error if the chain is not supported.
+ */
+std::unique_ptr<const CChainParams> CreateChainParams(const std::string& chain);
+
+
+/**
  * Return the currently selected parameters. This won't change after app
  * startup, except for unit tests.
  */
@@ -144,5 +159,20 @@ void SelectParams(const std::string& chain);
  * Allows modifying the BIP9 regtest parameters.
  */
 void UpdateRegtestBIP9Parameters(Consensus::DeploymentPos d, int64_t nStartTime, int64_t nTimeout);
+
+/**
+ * Allows modifying the Op Sender block height regtest parameter.
+ */
+void UpdateOpSenderBlockHeight(int nHeight);
+
+/**
+ * Allows modifying the btc_ecrecover block height regtest parameter.
+ */
+void UpdateBtcEcrecoverBlockHeight(int nHeight);
+
+/**
+ * Allows modifying the constantinople block height regtest parameter.
+ */
+void UpdateConstantinopleBlockHeight(int nHeight);
 
 #endif // BITCOIN_CHAINPARAMS_H

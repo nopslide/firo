@@ -139,7 +139,7 @@ if ENABLE_WALLET
 LIBBITCOIN_WALLET=libbitcoin_wallet.a
 endif
 
-$(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
+$(LIBSECP256K1): $(wildcard secp256k1/src/*.h) $(wildcard secp256k1/src/*.c) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
 
 # Make is not made aware of per-object dependencies to avoid limiting building parallelization
@@ -390,7 +390,8 @@ BITCOIN_CORE_H = \
   fvm/fvmstate.h \
   fvm/fvmtransaction.h \
   fvm/fvmDGP.h \
-  fvm/storageresults.h
+  fvm/storageresults.h \
+  fvm/fvmutils.h
 
 obj/build.h: FORCE
 	@$(MKDIR_P) $(builddir)/obj
@@ -401,7 +402,6 @@ libbitcoin_util_a-clientversion.$(OBJEXT): obj/build.h
 # server: shared between firod and firo-qt
 libbitcoin_server_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES) $(LIBBLSSIG_INCLUDES) $(MINIUPNPC_CPPFLAGS) $(EVENT_CFLAGS) $(EVENT_PTHREADS_CFLAGS)
 libbitcoin_server_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
-libbitcoin_server_a_CFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) -std=c99
 libbitcoin_server_a_SOURCES = \
   addrman.cpp \
   addrdb.cpp \
@@ -529,7 +529,7 @@ libbitcoin_wallet_a_SOURCES = \
 
 # crypto primitives library
 crypto_libbitcoin_crypto_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_CONFIG_INCLUDES)
-crypto_libbitcoin_crypto_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS)
+crypto_libbitcoin_crypto_a_CXXFLAGS = $(AM_CXXFLAGS) $(PIE_FLAGS) -fPIC
 crypto_libbitcoin_crypto_a_CFLAGS = $(AM_CXXFLAGS) -fPIC
 crypto_libbitcoin_crypto_a_SOURCES = \
   crypto/aes.cpp \
@@ -1149,6 +1149,14 @@ CLEANFILES += tor.timestamp tor.timestamp.tmp
 DISTCLEANFILES = obj/build.h
 
 EXTRA_DIST = $(CTAES_DIST)
+
+config/bitcoin-config.h: config/stamp-h1
+	@$(MAKE) -C $(top_builddir) $(subdir)/$(@)
+config/stamp-h1: $(top_srcdir)/$(subdir)/config/bitcoin-config.h.in $(top_builddir)/config.status
+	$(AM_V_at)$(MAKE) -C $(top_builddir) $(subdir)/$(@)
+$(top_srcdir)/$(subdir)/config/bitcoin-config.h.in:  $(am__configure_deps)
+	$(AM_V_at)$(MAKE) -C $(top_srcdir) $(subdir)/config/bitcoin-config.h.in
+
 
 clean-local:
 	-$(MAKE) -C secp256k1 clean
