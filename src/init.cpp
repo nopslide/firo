@@ -1787,11 +1787,8 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 pcoinscatcher = new CCoinsViewErrorCatcher(pcoinsdbview);
                 pcoinsTip = new CCoinsViewCache(pcoinscatcher);
                 llmq::InitLLMQSystem(*evoDb, &scheduler, false, fReindex || fReindexChainState);
-
-                if (fReindex) {
-                    boost::filesystem::path stateDir = GetDataDir() / "stateFiro";
-                    StorageResults storageRes(stateDir.string());
-                    storageRes.wipeResults();
+                
+                if (fReindex) {                    
                     pblocktree->WriteReindexing(true);
                     //If we're reindexing in prune mode, wipe away unusable block files and all undo data files
                     if (fPruneMode)
@@ -1842,8 +1839,8 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                     fGettingValuesDGP = false;
                 }
 
-                dev::eth::Ethash::init();
-
+                // dev::eth::Ethash::init();
+                dev::eth::NoProof::init();
                 boost::filesystem::path fvmStateDir = GetDataDir() / "stateFVM";
 
                 bool fStatus = boost::filesystem::exists(fvmStateDir);
@@ -1851,21 +1848,25 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 const dev::h256 hashDB(dev::sha3(dev::rlp("")));
                 dev::eth::BaseState existsFvmstate = fStatus ? dev::eth::BaseState::PreExisting : dev::eth::BaseState::Empty;
                 globalState = std::unique_ptr<FvmState>(new FvmState(dev::u256(0), FvmState::openDB(dirFvm, hashDB, dev::WithExisting::Trust), dirFvm, existsFvmstate));
-                dev::eth::ChainParams cp((dev::eth::genesisInfo(dev::eth::Network::FvmMainNetwork)));
-                std::cout << "State root " << cp.calculateStateRoot(true) << std::endl;
+                dev::eth::ChainParams cp((chainparams.EVMGenesisInfo(dev::eth::Network::FvmMainNetwork)));
+
+                // std::cout << "State root " << cp.calculateStateRoot(true) << std::endl;
                 LogPrintf("State root %s\n", cp.calculateStateRoot(true));
                 globalSealEngine = std::unique_ptr<dev::eth::SealEngineFace>(cp.createSealEngine());
 
                 pstorageresult = new StorageResults(fvmStateDir.string());
-
-                if(chainActive.Tip() != NULL){
+                if(fReindex){
+                    pstorageresult->wipeResults();
+                }
+                
+                if(chainActive.Tip() != NULL){                    
                     globalState->setRoot(uintToh256(chainActive.Tip()->hashStateRoot));
                     globalState->setRootUTXO(uintToh256(chainActive.Tip()->hashUTXORoot));
-                } else {
+                } else {                    
                     globalState->setRoot(dev::sha3(dev::rlp("")));
                     globalState->setRootUTXO(uintToh256(chainparams.GenesisBlock().hashUTXORoot));
                     globalState->populateFrom(cp.genesisState);
-                }
+                }                
                 globalState->db().commit();
                 globalState->dbUtxo().commit();
 
@@ -1941,6 +1942,7 @@ bool AppInitMain(boost::thread_group& threadGroup, CScheduler& scheduler)
                 }
             } catch (const std::exception& e) {
                 if (fDebug) LogPrintf("%s\n", e.what());
+                std::cout << "Error " << e.what() << std::endl;
                 strLoadError = _("Error opening block database");
                 break;
             }

@@ -6,7 +6,7 @@ StorageResults::StorageResults(std::string const& _path){
     leveldb::Options options;
     options.create_if_missing = true;
     leveldb::Status status = leveldb::DB::Open(options, path, &db);
-    assert(status.ok());
+    // assert(status.ok());
     LogPrintf("Opened LevelDB successfully\n");
 }
 
