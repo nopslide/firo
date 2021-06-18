@@ -936,7 +936,28 @@ libbitcoin_util_a_SOURCES = \
   bitcoin_bignum/compat.h \
   bitcoin_bignum/netbase.h \
   crypto/MerkleTreeProof/mtp.cpp \
-  crypto/MerkleTreeProof/merkle-tree.cpp \
+  crypto/MerkleTreeProof/merkle-tree.cpp \  
+  cpp-ethereum/ethash/include/ethash/ethash.h \
+  cpp-ethereum/ethash/include/ethash/ethash.hpp \
+  cpp-ethereum/ethash/include/ethash/hash_types.h \
+  cpp-ethereum/ethash/include/ethash/hash_types.hpp \
+  cpp-ethereum/ethash/include/ethash/keccak.h \
+  cpp-ethereum/ethash/include/ethash/keccak.hpp \
+  cpp-ethereum/ethash/include/ethash/progpow.hpp \
+  cpp-ethereum/ethash/lib/ethash/support/attributes.h \
+  cpp-ethereum/ethash/lib/ethash/bit_manipulation.h \
+  cpp-ethereum/ethash/lib/ethash/builtins.h \
+  cpp-ethereum/ethash/lib/ethash/endianness.hpp \
+  cpp-ethereum/ethash/lib/ethash/ethash.cpp \
+  cpp-ethereum/ethash/lib/ethash/ethash-internal.hpp \
+  cpp-ethereum/ethash/lib/ethash/keccak.c \
+  cpp-ethereum/ethash/lib/ethash/keccakf800.c \
+  cpp-ethereum/ethash/lib/ethash/keccakf1600.c \
+  cpp-ethereum/ethash/lib/ethash/kiss99.hpp \
+  cpp-ethereum/ethash/lib/ethash/managed.cpp \
+  cpp-ethereum/ethash/lib/ethash/primes.c \
+  cpp-ethereum/ethash/lib/ethash/primes.h \
+  cpp-ethereum/ethash/lib/ethash/progpow.cpp \
   $(BITCOIN_CORE_H)
 
 liblelantus_a_CPPFLAGS = $(AM_CPPFLAGS) $(BITCOIN_INCLUDES)

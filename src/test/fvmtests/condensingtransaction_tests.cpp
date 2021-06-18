@@ -1,7 +1,7 @@
 #include <boost/test/unit_test.hpp>
 #include <fvmtests/test_utils.h>
 
-std::vector<valtype> code = {
+const std::vector<valtype> code = {
     /*
         contract Sender1 {
             address sender2;
@@ -178,7 +178,7 @@ std::vector<valtype> code = {
     valtype(ParseHex("60606040527347b725b087f9ef7802b4fef599cfeb08a451e46f600060006101000a81548173ffffffffffffffffffffffffffffffffffffffff021916908373ffffffffffffffffffffffffffffffffffffffff1602179055505b5b5b61017a8061006b6000396000f3006060604052361561003f576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680638a4068dd14610048575b6100465b5b565b005b610050610052565b005b600060009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1660023073ffffffffffffffffffffffffffffffffffffffff16318115610000570460405180807f7472616e73666572282900000000000000000000000000000000000000000000815250600a01905060405180910390207c01000000000000000000000000000000000000000000000000000000009004906040518263ffffffff167c010000000000000000000000000000000000000000000000000000000002815260040180905060006040518083038185886185025a03f19350505050505b5600a165627a7a72305820709abc77d99f7e829396b41fcf78a6d4444b9f9734ea765177bd11cbd7357e960029"))
 };
 
-dev::h256 hashTest = dev::h256(ParseHex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
+const dev::h256 hashT = dev::h256(ParseHex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
 
 void checkRes(ByteCodeExecResult& res, std::vector<dev::Address>& addresses, std::vector<dev::u256>& balances, size_t sizeTxs){
     std::unordered_map<dev::Address, Vin> vins = globalState->vins();
@@ -207,7 +207,7 @@ BOOST_FIXTURE_TEST_SUITE(condensingtransaction_tests, TestingSetup)
 
 BOOST_AUTO_TEST_CASE(condensingtransactionbehavior_tests){
     initState();
-    dev::h256 hashTemp(hashTest);
+    dev::h256 hashTemp(hashT);
 
     std::vector<FvmTransaction> txs;
     std::vector<dev::Address> addresses;
@@ -256,7 +256,7 @@ BOOST_AUTO_TEST_CASE(condensingtransactionbehavior_tests){
 
 BOOST_AUTO_TEST_CASE(condensingtransactionbreadthways_tests){
     initState();
-    dev::h256 hashTemp(hashTest);
+    dev::h256 hashTemp(hashT);
     std::vector<dev::Address> addresses;
     std::vector<FvmTransaction> txs;
     for(size_t i = 0; i < 3; i++){
@@ -281,7 +281,7 @@ BOOST_AUTO_TEST_CASE(condensingtransactionbreadthways_tests){
 
 BOOST_AUTO_TEST_CASE(condensingtransactiondeep_tests){
     initState();
-    dev::h256 hashTemp(hashTest);
+    dev::h256 hashTemp(hashT);
     std::vector<dev::Address> addresses;
     std::vector<FvmTransaction> txs;
     for(size_t i = 12; i < 17; i++){
@@ -300,7 +300,7 @@ BOOST_AUTO_TEST_CASE(condensingtransactiondeep_tests){
 
 BOOST_AUTO_TEST_CASE(condensingtransactionsuicide_tests){
     initState();
-    dev::h256 hashTemp(hashTest);
+    dev::h256 hashTemp(hashT);
     std::vector<dev::Address> addresses;
     std::vector<FvmTransaction> txs;
     txs.push_back(createFvmTransaction(code[12], 0, dev::u256(500000), dev::u256(1), hashTemp, dev::Address(), 0));
@@ -322,7 +322,7 @@ BOOST_AUTO_TEST_CASE(condensingtransactionsuicide_tests){
 
 BOOST_AUTO_TEST_CASE(condensingtransactionpaytopubkeyhash_tests){
     initState();
-    dev::h256 hashTemp(hashTest);
+    dev::h256 hashTemp(hashT);
     std::vector<dev::Address> addresses;
     std::vector<FvmTransaction> txs;
 

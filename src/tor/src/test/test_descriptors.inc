@@ -135,7 +135,7 @@ const char TEST_DESCRIPTORS[] =
 "reject *:*\n"
 "router-signature\n"
 "-----BEGIN SIGNATURE-----\n"
-"IY2s/RY4tdahrgfGG+vW7lOvpfofoxxSo7guGpSKGxVApiroCQtumoYifnnJ88G2\n"
+"IY2s/RY4tdahrgfGG+vW7lOvpfofoxxSo7guGpSKGxVApiroCFvmoYifnnJ88G2\n"
 "K4IbxwEO8pgO8fnz1mibblUWw2vdDNjCifc1wtXJUE+ONA0UcLRlfQ94GbL8h2PG\n"
 "72z6i1+NN0QahXMk7MUbzI7bOXTJOiO8e2Zjk9vRnxI=\n"
 "-----END SIGNATURE-----\n"
